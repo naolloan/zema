@@ -1,259 +1,237 @@
-# Music Platform - Setup Guide
+# Zeማa Setup Guide
 
-A comprehensive social music platform for discovery, discussion, and personal listening history.
+This guide is the practical local-development setup for Zeማa.
 
-## Prerequisites
+## What you need
 
 - Node.js 18+
 - PostgreSQL 12+
-- npm or yarn
+- npm
 
-## Quick Start
+## Quick start
 
-### 1. Install Dependencies
+### 1. Install dependencies
+
+From the project root:
 
 ```bash
-# Install root dependencies
-npm install
-
-# Install all project dependencies
 npm run setup
 ```
 
-### 2. Database Setup
+### 2. Create the database
 
-1. Create a PostgreSQL database:
+Create a PostgreSQL database:
+
 ```sql
 CREATE DATABASE music_platform;
 ```
 
-2. Copy environment files:
-```bash
-# Server environment
-cp server/.env.example server/.env
+### 3. Create local env files
 
-# Client environment
+```bash
+cp server/.env.example server/.env
 cp client/.env.local.example client/.env.local
 ```
 
-3. Update environment variables:
-```bash
-# server/.env
+### 4. Configure minimum local env values
+
+`server/.env`
+
+```env
 DATABASE_URL="postgresql://username:password@localhost:5432/music_platform"
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
-SPOTIFY_CLIENT_ID="your-spotify-client-id"
-SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
+JWT_SECRET="change-this-in-development-too"
 NODE_ENV="development"
 PORT=5000
-FRONTEND_URL="http://localhost:3001"
-
-# client/.env.local
-NEXT_PUBLIC_API_BASE_URL="http://localhost:5000"
+FRONTEND_URL="http://localhost:3000"
 ```
 
-### 3. Database Migrations
+`client/.env.local`
+
+```env
+NEXT_PUBLIC_API_BASE_URL="http://localhost:5000"
+NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="false"
+```
+
+### 5. Run migrations
 
 ```bash
 npm run db:migrate
 ```
 
-### 4. Start Development Servers
+### 6. Start the app
 
 ```bash
 npm run dev
 ```
 
-This will start both the frontend (http://localhost:3001) and backend (http://localhost:5000) servers.
+Local URLs:
 
-## Project Structure
+- frontend: `http://localhost:3000`
+- backend: `http://localhost:5000`
+- health: `http://localhost:5000/health`
 
-```
-music-platform/
-├── client/                 # Next.js frontend application
-│   ├── src/
-│   │   ├── app/         # App router pages
-│   │   ├── components/   # React components
-│   │   ├── lib/         # Utility functions
-│   │   ├── types/       # TypeScript types
-│   │   └── hooks/       # Custom React hooks
-│   ├── package.json
-│   └── tailwind.config.js
-├── server/                 # Express backend API
-│   ├── src/
-│   │   ├── controllers/  # API route handlers
-│   │   ├── middleware/   # Express middleware
-│   │   ├── routes/       # API routes
-│   │   ├── services/     # Business logic
-│   │   ├── types/        # TypeScript types
-│   │   └── prisma/       # Database schema
-│   └── package.json
-├── shared/                 # Shared types and utilities
-├── package.json           # Root package.json
-└── README.md
+## Optional integrations
+
+These are optional for local development, but useful when you want richer external behavior.
+
+### Spotify
+
+```env
+SPOTIFY_CLIENT_ID="your-spotify-client-id"
+SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
 ```
 
-## Features Implemented
+Notes:
 
-### ✅ Core Features
-- **User Authentication**: Registration, login, JWT-based auth
-- **Music Database**: Complete schema for artists, releases, tracks
-- **External API Integration**: Spotify Web API for metadata
-- **Reviews & Ratings**: User-generated content system
-- **Diary/Listening Log**: Personal music tracking
-- **Favorites**: 4 favorite releases per user
-- **Lists**: Curated music collections
-- **Charts**: Dynamic top-rated music
-- **Search**: Global search across all content
-- **Social Features**: Review likes, user profiles
+- the codebase supports Spotify integration
+- the app also contains MusicBrainz-based fallback behavior
+- if Spotify credentials are missing or limited, some metadata flows may degrade gracefully instead of fully breaking
 
-### ✅ Technical Features
-- **TypeScript**: Full type safety
-- **Database**: PostgreSQL with Prisma ORM
-- **API Design**: RESTful API with proper error handling
-- **Frontend**: Next.js 14 with modern UI components
-- **Styling**: Tailwind CSS with shadcn/ui components
-- **Authentication**: Secure JWT implementation
+### Google sign-in
 
-## API Endpoints
+Server env:
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `GET /api/auth/verify-email` - Verify a new email address
-- `POST /api/auth/verify-email/resend` - Resend verification email
-- `POST /api/auth/forgot-password` - Request password reset
-- `POST /api/auth/reset-password` - Reset password with token
-- `GET /api/auth/google/start` - Start Google sign-in
-- `GET /api/auth/google/callback` - Complete Google sign-in
-- `POST /api/auth/refresh` - Refresh token
-- `POST /api/auth/logout` - User logout
+```env
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GOOGLE_REDIRECT_URI="http://localhost:5000/api/auth/google/callback"
+```
 
-Client auth UI note:
-- Set `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="true"` in `client/.env.local` when Google sign-in is configured.
+Client env:
 
-### Users
-- `GET /api/users/me` - Get current user profile
-- `PUT /api/users/me` - Update profile
-- `GET /api/users/:id` - Get user by ID
-- `GET /api/users/:id/reviews` - Get user's reviews
-- `GET /api/users/:id/diary` - Get user's diary entries
-- `GET /api/users/:id/favorites` - Get user's favorites
-- `GET /api/users/:id/lists` - Get user's lists
+```env
+NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="true"
+```
 
-### Artists
-- `GET /api/artists/search?q=query` - Search artists
-- `GET /api/artists/:id` - Get artist by ID
-- `GET /api/artists/:id/releases` - Get artist's releases
+Google Cloud requirements:
 
-### Releases
-- `GET /api/releases/search?q=query` - Search releases
-- `GET /api/releases/:id` - Get release by ID
-- `GET /api/releases/:id/tracks` - Get release tracks
-- `GET /api/releases/:id/reviews` - Get release reviews
-- `POST /api/releases/:id/rate` - Rate a release
-- `PUT /api/releases/:id/rate` - Update rating
-- `POST /api/releases/:id/favorite` - Add to favorites
-- `DELETE /api/releases/:id/favorite` - Remove from favorites
+- OAuth client type: `Web application`
+- authorized redirect URI:
 
-### Reviews
-- `POST /api/reviews` - Create review
-- `PUT /api/reviews/:id` - Update review
-- `DELETE /api/reviews/:id` - Delete review
-- `GET /api/reviews/:id` - Get review by ID
-- `POST /api/reviews/:id/like` - Like/unlike review
+```text
+http://localhost:5000/api/auth/google/callback
+```
 
-### Diary
-- `POST /api/diary` - Create diary entry
-- `GET /api/diary/my-entries` - Get my diary entries
-- `GET /api/diary/user/:userId` - Get user's diary entries
-- `PUT /api/diary/:id` - Update diary entry
-- `DELETE /api/diary/:id` - Delete diary entry
+- if the consent screen is in testing mode, add your own Google account as a test user
 
-### Lists
-- `POST /api/lists` - Create list
-- `PUT /api/lists/:id` - Update list
-- `DELETE /api/lists/:id` - Delete list
-- `GET /api/lists/:id` - Get list by ID
-- `GET /api/lists/user/:userId` - Get user's lists
-- `POST /api/lists/:id/items` - Add item to list
-- `PUT /api/lists/:id/items/:itemId` - Update list item
-- `DELETE /api/lists/:id/items/:itemId` - Remove item from list
-- `PUT /api/lists/:id/reorder` - Reorder list items
+### Resend email delivery
 
-### Charts
-- `GET /api/charts/top-releases` - Get top releases
-- `GET /api/charts/:type` - Get chart by type
+Server env:
 
-### Search
-- `GET /api/search?q=query&type=all|artist|release|track` - Global search
+```env
+RESEND_API_KEY="your-resend-api-key"
+EMAIL_FROM="Zeማa <auth@yourdomain.com>"
+```
 
-## Database Schema
+Notes:
 
-The platform uses a comprehensive PostgreSQL schema with the following main entities:
+- email verification and password reset are implemented
+- if Resend is not configured, development falls back to preview links
+- real email delivery usually requires a verified sender/domain
 
-- **Users**: Authentication and profiles
-- **Artists**: Music artists (individuals and groups)
-- **Releases**: Albums, EPs, singles, mixtapes
-- **Tracks**: Individual songs with credits
-- **Reviews**: User reviews for releases
-- **Ratings**: 1-5 star ratings
-- **Diary Entries**: Personal listening logs
-- **Favorites**: User's 4 favorite releases
-- **Lists**: Curated music collections
-- **Artist Credits**: Flexible role-based credits
+## Current auth behavior
 
-## External Integrations
+### Email/password accounts
 
-### Spotify Web API
-- Fetches artist, release, and track metadata
-- Provides canonical Spotify links for artists, albums, and tracks
-- Caches data locally to reduce API calls
+- users can register with email and password
+- sign-in is blocked until the email is verified
+- forgot-password and reset-password are available
+- change-password is available from the profile area
 
-## Development Notes
+### Google accounts
 
-### Code Quality
-- TypeScript throughout for type safety
-- ESLint configuration for code standards
-- Prisma for type-safe database operations
+- users can sign up/sign in with Google
+- Google-created accounts do not need the email verification flow in the same way local email/password accounts do
 
-### Performance
-- Database indexing on frequently queried fields
-- Pagination for large result sets
-- Caching of external API responses
-- Image optimization for release artwork
+## Useful commands
 
-### Security
-- JWT-based authentication
-- Input validation and sanitization
-- Rate limiting on API endpoints
-- CORS configuration
-- SQL injection prevention through Prisma
+From the project root:
 
-## Deployment
-
-### Environment Variables
-- `NODE_ENV`: Set to 'production'
-- `DATABASE_URL`: Production PostgreSQL connection
-- `JWT_SECRET`: Strong secret key
-- `FRONTEND_URL`: Production frontend URL
-
-### Build Process
 ```bash
-# Build both frontend and backend
+npm run dev
 npm run build
-
-# Start production server
-npm start
+npm run client:build
+npm run server:build
+npm run db:migrate
 ```
 
-## Contributing
+From the server directory:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+```bash
+npm test
+npm run db:generate
+npm run db:studio
+```
 
-## License
+## Project structure
 
-MIT License - see LICENSE file for details
+```text
+music-platform/
+├── client/
+│   ├── src/app
+│   ├── src/components
+│   ├── src/lib
+│   └── src/types
+├── server/
+│   ├── prisma
+│   ├── src/controllers
+│   ├── src/middleware
+│   ├── src/routes
+│   ├── src/services
+│   └── src/tests
+├── shared/
+├── README.md
+└── SETUP.md
+```
+
+## Main implemented areas
+
+- auth with email verification, reset password, and Google sign-in
+- public home page plus signed-in home experience
+- profile pages with diary, lists, activity, network, and favorites
+- release pages with ratings, reviews, logs, stats, and overlays
+- artist pages and linked releases
+- public lists, official lists, likes, and comments
+- notifications, follow relationships, and comment permissions
+
+## GitHub setup
+
+If you are setting the project up on GitHub for the first time:
+
+```bash
+git remote add origin https://github.com/<your-username>/<repo-name>.git
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+```
+
+Recommended ongoing workflow:
+
+```bash
+git checkout -b feature/short-description
+git add .
+git commit -m "Describe the change"
+git push -u origin feature/short-description
+```
+
+## Troubleshooting
+
+### Port mismatch or CORS issues
+
+Make sure:
+
+- frontend runs on `http://localhost:3000`
+- backend runs on `http://localhost:5000`
+- `FRONTEND_URL` matches your frontend URL if you customize it
+
+### Google sign-in fails after account selection
+
+Check:
+
+- redirect URI matches exactly
+- your Google account is listed as a test user if the app is in testing
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="true"` is set in `client/.env.local`
+
+### Password reset or verification email does not arrive
+
+If you do not have a verified sender/domain yet, this is expected. Use the preview-link flow in local development until real email delivery is configured.

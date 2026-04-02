@@ -1,114 +1,220 @@
-# Music Platform - Social Music Discovery Network
+# Zeማa
 
-A community-driven music discovery and discussion platform inspired by Letterboxd, focused entirely on music.
+Zeማa is a social music platform inspired by the community and discovery feel of Letterboxd, but built for music. Users can explore artists and releases, rate and review records, log listens, curate lists, follow other users, and shape live community charts.
 
-## Features
+## Current status
 
-- **Music Discovery**: Search and explore artists, releases, and tracks
-- **Social Interaction**: Write reviews, rate music, and connect with other users
-- **Personal Tracking**: Log listening activity with diary entries
-- **Curated Lists**: Create and share custom music collections
-- **Top Charts**: Dynamic charts based on community ratings
-- **Favorites**: Curate favorite albums, songs, and artists on your profile
-- **External Integration**: Music metadata from Spotify
-- **Authentication**: Email verification, password reset, and Google sign-in
+The app is actively in development and already includes the main social/discovery flows:
 
-## Architecture
+- artist and release discovery
+- reviews, ratings, and diary logging
+- user profiles, follows, notifications, and comments
+- public lists and official lists
+- favorites, likes, and want-to-hear tracking
+- Google sign-in plus email/password auth
 
-- **Frontend**: Next.js 14 with TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Node.js with Express, TypeScript
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT-based authentication with email verification and password reset
-- **External APIs**: Spotify Web API
+Some integrations are intentionally partial for now:
 
-## Getting Started
+- Spotify support exists, but live Spotify access may be limited until valid credentials are configured
+- email verification and password reset support real delivery through Resend, but local development can also use preview links without a custom domain
+
+## Tech stack
+
+- Frontend: Next.js 14, TypeScript, Tailwind CSS
+- Backend: Express, TypeScript
+- Database: PostgreSQL + Prisma
+- Auth: JWT, Google OAuth, email verification, password reset
+- Metadata sources: Spotify and MusicBrainz
+
+## Local development
 
 ### Prerequisites
 
 - Node.js 18+
-- PostgreSQL
-- npm or yarn
+- PostgreSQL 12+
+- npm
 
-### Installation
+### 1. Install dependencies
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm run setup
-   ```
-3. Set up environment variables (see Environment Variables section)
-4. Run database migrations:
-   ```bash
-   npm run db:migrate
-   ```
-5. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-
-## Environment Variables
-
-Create `.env` files in both `client` and `server` directories:
-
-### Server (.env)
+```bash
+npm run setup
 ```
+
+### 2. Create local env files
+
+```bash
+cp server/.env.example server/.env
+cp client/.env.local.example client/.env.local
+```
+
+### 3. Update environment variables
+
+Minimum local setup:
+
+`server/.env`
+
+```env
 DATABASE_URL="postgresql://username:password@localhost:5432/music_platform"
-JWT_SECRET="your-jwt-secret"
-SPOTIFY_CLIENT_ID="your-spotify-client-id"
-SPOTIFY_CLIENT_SECRET="your-spotify-client-secret"
-RESEND_API_KEY="your-resend-api-key"
-EMAIL_FROM="Zeማa <auth@yourdomain.com>"
+JWT_SECRET="change-this-in-development-too"
+NODE_ENV="development"
+PORT=5000
+FRONTEND_URL="http://localhost:3000"
+```
+
+`client/.env.local`
+
+```env
+NEXT_PUBLIC_API_BASE_URL="http://localhost:5000"
+NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="false"
+```
+
+### 4. Run database migrations
+
+```bash
+npm run db:migrate
+```
+
+### 5. Start the app
+
+```bash
+npm run dev
+```
+
+App URLs:
+
+- frontend: `http://localhost:3000`
+- backend: `http://localhost:5000`
+- health check: `http://localhost:5000/health`
+
+## Environment variables
+
+### Server
+
+Required for basic local development:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PORT`
+- `FRONTEND_URL`
+
+Optional integrations:
+
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+
+### Client
+
+- `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_GOOGLE_AUTH_ENABLED`
+
+## Auth notes
+
+### Email/password
+
+- registration requires email verification before sign-in
+- forgot-password and reset-password are implemented
+- if Resend is not configured, development mode falls back to preview links instead of real email delivery
+
+### Google sign-in
+
+To enable Google sign-in:
+
+1. create a Google OAuth web application
+2. set this redirect URI exactly:
+
+```text
+http://localhost:5000/api/auth/google/callback
+```
+
+3. add these server env vars:
+
+```env
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
 GOOGLE_REDIRECT_URI="http://localhost:5000/api/auth/google/callback"
-NODE_ENV="development"
-PORT=5000
 ```
 
-### Client (.env.local)
-```
-NEXT_PUBLIC_API_BASE_URL="http://localhost:5000"
+4. enable the client button:
+
+```env
 NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="true"
 ```
 
-## Project Structure
+If your Google OAuth app is in testing mode, add your own Google account as a test user.
 
-```
+## Email delivery notes
+
+Resend is supported for transactional email.
+
+For local development, a custom domain is not required if you are comfortable using preview links instead of real delivery. If you want real email delivery later, you will typically need:
+
+- a verified sender/domain
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+
+## Project structure
+
+```text
 music-platform/
-├── client/                 # Next.js frontend
-├── server/                 # Express backend API
-├── shared/                 # Shared types and utilities
-├── package.json           # Root package.json
-└── README.md
+├── client/                  # Next.js frontend
+├── server/                  # Express API
+├── shared/                  # Shared utilities/types
+├── README.md
+└── SETUP.md
 ```
 
-## API Endpoints
+## Useful scripts
 
-The backend provides RESTful APIs for:
-- Authentication (`/api/auth`)
-- Users (`/api/users`)
-- Artists (`/api/artists`)
-- Releases (`/api/releases`)
-- Tracks (`/api/tracks`)
-- Reviews (`/api/reviews`)
-- Ratings (`/api/ratings`)
-- Diary (`/api/diary`)
-- Lists (`/api/lists`)
-- Charts (`/api/charts`)
-- Search (`/api/search`)
+From the project root:
 
-## Contributing
+```bash
+npm run dev
+npm run build
+npm run client:build
+npm run server:build
+npm run db:migrate
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+Backend tests:
 
-## License
+```bash
+cd server && npm test
+```
 
-MIT License
+## GitHub workflow
+
+Recommended workflow for future changes:
+
+1. branch from `main`
+2. make one focused change at a time
+3. commit with a clear message
+4. push branch
+5. open a pull request
+
+Example:
+
+```bash
+git checkout -b feature/profile-polish
+git add .
+git commit -m "Polish profile layout and interactions"
+git push -u origin feature/profile-polish
+```
+
+## Main product areas
+
+- **Home**: public and signed-in discovery surfaces
+- **Explore**: search artists, releases, users, and lists
+- **Releases**: browse, rate, review, log, like, add to lists, want to hear
+- **Artists**: profiles with linked releases and discography
+- **Profiles**: favorites, diary, lists, network, notifications
+- **Lists**: user-created lists and official lists
+- **Reviews**: community review discovery and interaction
+
+## Setup guide
+
+For a fuller setup walkthrough, see [SETUP.md](/home/naol/CascadeProjects/music-platform/SETUP.md).
