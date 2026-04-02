@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 8%;
+    --foreground: 36 33% 96%;
+    --card: 220 24% 10%;
+    --card-foreground: 36 33% 96%;
+    --popover: 220 24% 10%;
+    --popover-foreground: 36 33% 96%;
+    --primary: 16 100% 65%;
+    --primary-foreground: 210 40% 8%;
+    --secondary: 219 18% 18%;
+    --secondary-foreground: 36 33% 96%;
+    --muted: 219 18% 18%;
+    --muted-foreground: 214 16% 68%;
+    --accent: 47 88% 66%;
+    --accent-foreground: 210 40% 8%;
+    --destructive: 0 72% 54%;
+    --destructive-foreground: 36 33% 96%;
+    --border: 220 16% 19%;
+    --input: 220 16% 19%;
+    --ring: 47 88% 66%;
+    --radius: 1rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Avenir Next', Manrope, 'Segoe UI', sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(255, 123, 84, 0.16), transparent 30%),
+      radial-gradient(circle at top right, rgba(42, 157, 143, 0.16), transparent 24%),
+      linear-gradient(180deg, #161922 0%, #0e1117 42%, #090b10 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Trebuchet MS', 'Avenir Next Condensed', 'Arial Narrow', sans-serif;
+  }
+
+  a {
+    @apply outline-none;
+  }
+
+  ::selection {
+    background: rgba(244, 211, 94, 0.28);
+    color: #fff8df;
+  }
+}

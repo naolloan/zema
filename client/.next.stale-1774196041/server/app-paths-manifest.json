@@ -1,0 +1,9 @@
+{
+  "/not-found": "app/not-found.js",
+  "/artists/[id]/page": "app/artists/[id]/page.js",
+  "/profile/page": "app/profile/page.js",
+  "/lists/page": "app/lists/page.js",
+  "/explore/page": "app/explore/page.js",
+  "/page": "app/page.js",
+  "/auth/login/page": "app/auth/login/page.js"
+}

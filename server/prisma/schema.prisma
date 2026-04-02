@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  username          String             @unique
+  password          String
+  googleId          String?            @unique
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  displayName       String?
+  bio               String?
+  avatarUrl         String?
+  notificationsSeenAt DateTime?
+  commentPermission CommentPermission  @default(FOLLOWING)
+  authTokens        AuthToken[]
+  reviews           Review[]
+  ratings           Rating[]
+  diaryEntries      DiaryEntry[]
+  favorites         Favorite[]
+  favoriteArtists   FavoriteArtist[]
+  releaseLikes      ReleaseLike[]
+  lists             List[]
+  reviewLikes       ReviewLike[]
+  listLikes         ListLike[]
+  followers         UserFollow[]       @relation("UserFollowers")
+  following         UserFollow[]       @relation("UserFollowing")
+  reviewComments    ReviewComment[]
+  listComments      ListComment[]
+  wantToHear        WantToHear[]
+  notificationReads NotificationRead[]
+
+  @@map("users")
+}
+
+enum CommentPermission {
+  ANYONE
+  FOLLOWING
+  SELF
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("auth_tokens")
+}
+
+model NotificationRead {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationKey String
+
+  @@unique([userId, notificationKey])
+  @@index([userId, createdAt])
+  @@map("notification_reads")
+}
+
+model Artist {
+  id             String        @id @default(cuid())
+  musicBrainzId  String?       @unique
+  spotifyId      String?       @unique
+  name           String
+  type           ArtistType
+  disambiguation String?
+  bio            String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  releases       Release[]
+  artistCredits  ArtistCredit[]
+  favoritedBy    FavoriteArtist[]
+
+  @@map("artists")
+}
+
+enum ArtistType {
+  INDIVIDUAL
+  GROUP
+}
+
+model Release {
+  id             String        @id @default(cuid())
+  musicBrainzId  String?       @unique
+  spotifyId      String?       @unique
+  title          String
+  type           ReleaseType
+  releaseDate    DateTime?
+  disambiguation String?
+  artworkUrl     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  artistId       String
+  artist         Artist        @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks         Track[]
+  reviews        Review[]
+  ratings        Rating[]
+  diaryEntries   DiaryEntry[]
+  favorites      Favorite[]
+  likes          ReleaseLike[]
+  wantToHear     WantToHear[]
+  listItems      ListItem[]
+  artistCredits  ArtistCredit[]
+
+  @@map("releases")
+}
+
+enum ReleaseType {
+  ALBUM
+  EP
+  SINGLE
+  MIXTAPE
+}
+
+enum ListCategory {
+  MIXED
+  ALBUMS
+  SINGLES
+  EPS
+  MIXTAPES
+}
+
+model Track {
+  id             String        @id @default(cuid())
+  musicBrainzId  String?       @unique
+  spotifyId      String?       @unique
+  title          String
+  duration       Int?
+  trackNumber    Int?
+  disambiguation String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  releaseId      String?
+  release        Release?      @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  artistCredits  ArtistCredit[]
+
+  @@map("tracks")
+}
+
+model ArtistCredit {
+  id         String     @id @default(cuid())
+  artistId   String
+  artist     Artist     @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  releaseId  String?
+  release    Release?   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  trackId    String?
+  track      Track?     @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  role       ArtistRole
+  joinPhrase String?
+  position   Int?
+
+  @@index([releaseId, position])
+  @@index([trackId, position])
+  @@map("artist_credits")
+}
+
+enum ArtistRole {
+  MAIN_ARTIST
+  FEATURED_ARTIST
+  PRODUCER
+  COMPOSER
+  SONGWRITER
+  LYRICIST
+  ENGINEER
+  REMIXER
+}
+
+model Review {
+  id           String          @id @default(cuid())
+  content      String          @db.Text
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId    String
+  release      Release         @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  diaryEntryId String?         @unique
+  diaryEntry   DiaryEntry?     @relation(fields: [diaryEntryId], references: [id], onDelete: SetNull)
+  likes        ReviewLike[]
+  comments     ReviewComment[]
+
+  @@unique([userId, releaseId])
+  @@map("reviews")
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  value     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseId])
+  @@map("ratings")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  position  Int
+  section   FavoriteReleaseSection
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, section, position])
+  @@unique([userId, releaseId])
+  @@map("favorites")
+}
+
+enum FavoriteReleaseSection {
+  ALBUMS
+  SONGS
+}
+
+model FavoriteArtist {
+  id        String   @id @default(cuid())
+  position  Int
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artistId  String
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, position])
+  @@unique([userId, artistId])
+  @@map("favorite_artists")
+}
+
+model ReleaseLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseId])
+  @@map("release_likes")
+}
+
+model WantToHear {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, releaseId])
+  @@map("want_to_hear")
+}
+
+model DiaryEntry {
+  id         String    @id @default(cuid())
+  listenedAt DateTime
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  releaseId  String
+  release    Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  review     Review?
+
+  @@map("diary_entries")
+}
+
+model List {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  category    ListCategory @default(MIXED)
+  isPublic    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       ListItem[]
+  likes       ListLike[]
+  comments    ListComment[]
+
+  @@map("lists")
+}
+
+model ListItem {
+  id        String   @id @default(cuid())
+  position  Int
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  listId    String
+  list      List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, position])
+  @@unique([listId, releaseId])
+  @@map("list_items")
+}
+
+model ListLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listId    String
+  list      List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listId])
+  @@map("list_likes")
+}
+
+model ReviewLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@map("review_likes")
+}
+
+model UserFollow {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  followerId  String
+  followingId String
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt])
+  @@index([followerId, createdAt])
+  @@map("user_follows")
+}
+
+model ReviewComment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reviewId  String
+  userId    String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId, createdAt])
+  @@map("review_comments")
+}
+
+model ListComment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  listId    String
+  userId    String
+  list      List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([listId, createdAt])
+  @@map("list_comments")
+}

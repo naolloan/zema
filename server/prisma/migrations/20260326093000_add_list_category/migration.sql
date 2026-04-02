@@ -1,0 +1,4 @@
+CREATE TYPE "ListCategory" AS ENUM ('MIXED', 'ALBUMS', 'SINGLES', 'EPS', 'MIXTAPES');
+
+ALTER TABLE "lists"
+ADD COLUMN "category" "ListCategory" NOT NULL DEFAULT 'MIXED';
