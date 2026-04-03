@@ -61,14 +61,14 @@ export function ReviewComposer({ release, reviews, user, onReviewsChange }: Revi
       <textarea
         value={content}
         onChange={(event) => setContent(event.target.value)}
-        placeholder="Write at least 10 characters about this release"
+        placeholder="Write whatever you want about this release"
         className="min-h-[170px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-black placeholder:text-black/36 outline-none"
       />
       {error ? <p className="rounded-2xl border border-[#ff7b54]/30 bg-[#ff7b54]/10 px-4 py-3 text-sm text-[#ffd6cc]">{error}</p> : null}
       {message ? <p className="rounded-2xl border border-[#2a9d8f]/30 bg-[#2a9d8f]/10 px-4 py-3 text-sm text-[#d1fff3]">{message}</p> : null}
       <button
         type="submit"
-        disabled={loading || content.trim().length < 10}
+        disabled={loading || !content.trim()}
         className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#f4d35e] px-5 text-sm font-semibold text-[#111318] transition hover:bg-[#ffe082] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {loading ? <BrandLoader className="h-4 w-auto" /> : <PencilLine className="h-4 w-4" />}

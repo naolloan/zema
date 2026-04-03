@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
+import fs from 'fs/promises';
+import path from 'path';
 import { AuthTokenType, User } from '@prisma/client';
 import { createError } from '../middleware/errorHandler';
 import { CreateUserInput, LoginInput } from '../types';
@@ -22,6 +24,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_LENGTH = 6;
 const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
 const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
+const ACCOUNT_DELETE_CONFIRMATION = 'DELETE';
 const USER_SESSION_SELECT = {
   id: true,
   email: true,
@@ -45,6 +48,7 @@ class AuthController {
     this.requestPasswordReset = this.requestPasswordReset.bind(this);
     this.resetPassword = this.resetPassword.bind(this);
     this.changePassword = this.changePassword.bind(this);
+    this.deleteAccount = this.deleteAccount.bind(this);
     this.startGoogleAuth = this.startGoogleAuth.bind(this);
     this.handleGoogleCallback = this.handleGoogleCallback.bind(this);
   }
@@ -445,6 +449,69 @@ class AuthController {
     }
   }
 
+  async deleteAccount(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as AuthRequest).user?.id;
+      const currentPassword = String(req.body?.currentPassword || '');
+      const confirmation = String(req.body?.confirmation || '').trim().toUpperCase();
+
+      if (!userId) {
+        return next(createError('Access token required', 401));
+      }
+
+      if (confirmation !== ACCOUNT_DELETE_CONFIRMATION) {
+        return next(createError(`Type ${ACCOUNT_DELETE_CONFIRMATION} to confirm account deletion`, 400));
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          password: true,
+          googleId: true,
+          avatarUrl: true,
+        },
+      });
+
+      if (!user) {
+        return next(createError('User not found', 404));
+      }
+
+      if (!user.googleId) {
+        if (!currentPassword) {
+          return next(createError('Current password is required to delete this account', 400));
+        }
+
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+          return next(createError('Current password is incorrect', 400));
+        }
+      } else if (currentPassword) {
+        const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isCurrentPasswordValid) {
+          return next(createError('Current password is incorrect', 400));
+        }
+      }
+
+      const avatarUrl = user.avatarUrl;
+
+      await prisma.user.delete({
+        where: { id: user.id },
+      });
+
+      if (avatarUrl) {
+        await this.deleteStoredAvatar(avatarUrl);
+      }
+
+      res.json({
+        success: true,
+        message: 'Your account has been deleted.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async startGoogleAuth(req: Request, res: Response, next: NextFunction) {
     try {
       if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
@@ -695,6 +762,20 @@ class AuthController {
       .toLowerCase();
 
     return normalized.slice(0, 20) || `listener${Math.floor(Math.random() * 10_000)}`;
+  }
+
+  private async deleteStoredAvatar(avatarUrl: string) {
+    try {
+      const parsedUrl = new URL(avatarUrl, getFrontendUrl());
+      if (!parsedUrl.pathname.startsWith('/uploads/avatars/')) {
+        return;
+      }
+
+      const targetPath = path.resolve(process.cwd(), parsedUrl.pathname.replace(/^\//, ''));
+      await fs.unlink(targetPath);
+    } catch {
+      // Ignore avatar cleanup failures so account deletion still succeeds.
+    }
   }
 }
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { BrandLoader } from '@/components/brand/brand-logo'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { resetPassword } from '@/lib/auth-api'
 import { useAuthStore } from '@/store/auth-store'
 
@@ -61,16 +61,14 @@ export default function ResetPasswordPage() {
           </p>
         ) : null}
 
-        <Input
-          type="password"
+        <PasswordInput
           placeholder="New password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="h-12 rounded-2xl border-white/10 bg-white/8 text-black placeholder:text-white/36"
           required
         />
-        <Input
-          type="password"
+        <PasswordInput
           placeholder="Confirm new password"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}

@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Activity, BookOpen, Heart, MessageCircle, Star, UserPlus } from 'lucide-react'
+import { Activity, Heart, MessageCircle, Plus, Settings2, UserPlus } from 'lucide-react'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { getFollowers, getFollowing, getMyDiary, getMyLists, getMyProfile, getUserReleaseLikes, getUserReviews, getUserWantToHear } from '@/lib/auth-api'
 import { ListManager } from '@/components/lists/list-manager'
 import { FavoriteManager } from '@/components/profile/favorite-manager'
-import { ProfileEditor } from '@/components/profile/profile-editor'
 import { UserAvatar } from '@/components/profile/user-avatar'
 import { CoverArt } from '@/components/music/cover-art'
 import { ArtistCreditLine } from '@/components/music/artist-credit-line'
@@ -238,58 +237,79 @@ export default function ProfilePage() {
       </nav>
 
       {selectedTab === 'profile' ? (
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
-          <section className="space-y-8">
-            <ContentSection label="Favorite Albums" title="Your four cornerstone projects">
-              <ReleaseStrip releases={sortedFavoriteAlbumReleases} emptyLabel="Choose up to four favorite albums from the curated favorites panel below." />
-            </ContentSection>
-            <ContentSection label="Favorite Songs" title="Your four signature songs">
-              <ReleaseStrip releases={sortedFavoriteSongReleases} emptyLabel="Choose up to four favorite songs from the curated favorites panel below." />
-            </ContentSection>
-            <ContentSection label="Favorite Artists" title="The names at the center of your profile">
-              <ArtistStrip artists={favoriteArtists} emptyLabel="Choose up to four favorite artists from the curated favorites panel below." />
-            </ContentSection>
-            <ContentSection label="Wanted Soon" title="What you want to hear next">
-              <ReleaseStrip releases={sortedWantedReleases} emptyLabel="Use the new want-to-hear action on release pages to build this shelf." />
-            </ContentSection>
-          </section>
-          <section className="space-y-6">
-            <div className="rounded-[1.35rem] border border-white/10 bg-[#101720] p-5">
-              <ContentSection label="Settings" title="Account and privacy">
-                <div className="mt-4 space-y-3">
-                  <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ecae6]">Email</p>
-                    <p className="mt-2 text-sm font-medium text-white">{user.email || 'No email on file'}</p>
-                    <p className="mt-2 text-sm text-white/60">
-                      {user.emailVerifiedAt ? 'Verified sign-in email on this account.' : 'This email still needs verification.'}
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#f4d35e]">Comment permissions</p>
-                    <p className="mt-2 text-sm font-medium text-white">{formatCommentPermissionLabel(profile.commentPermission)}</p>
-                    <p className="mt-2 text-sm text-white/60">
-                      This applies to the conversation around your reviews and public lists.
-                    </p>
-                  </div>
-                  <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2a9d8f]">Account flow</p>
-                    <p className="mt-2 text-sm font-medium text-white">Profile, privacy, and avatar controls all live here now.</p>
-                    <p className="mt-2 text-sm text-white/60">
-                      That keeps account editing in one place instead of scattering it across the header, profile, and auth pages.
-                    </p>
-                  </div>
-                </div>
+        <div className="space-y-8">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+            <section className="space-y-8">
+              <ContentSection label="Favorite Albums" title="Your four cornerstone projects">
+                <ReleaseStrip
+                  releases={sortedFavoriteAlbumReleases}
+                  emptyLabel="Choose up to four favorite albums from the curated favorites panel below."
+                  fillTo={4}
+                  emptyLink="/profile#curated-favorites"
+                  emptyCardLabel="Add album"
+                />
               </ContentSection>
-            </div>
+              <ContentSection label="Favorite Songs" title="Your four signature songs">
+                <ReleaseStrip
+                  releases={sortedFavoriteSongReleases}
+                  emptyLabel="Choose up to four favorite songs from the curated favorites panel below."
+                  fillTo={4}
+                  emptyLink="/profile#curated-favorites"
+                  emptyCardLabel="Add song"
+                />
+              </ContentSection>
+              <ContentSection label="Favorite Artists" title="The names at the center of your profile">
+                <ArtistStrip
+                  artists={favoriteArtists}
+                  emptyLabel="Choose up to four favorite artists from the curated favorites panel below."
+                  fillTo={4}
+                  emptyLink="/profile#curated-favorites"
+                  emptyCardLabel="Add artist"
+                />
+              </ContentSection>
+              <ContentSection label="Wanted Soon" title="What you want to hear next">
+                <ReleaseStrip releases={sortedWantedReleases} emptyLabel="Use the new want-to-hear action on release pages to build this shelf." />
+              </ContentSection>
+            </section>
+            <section className="space-y-6">
+              <div className="rounded-[1.35rem] border border-white/10 bg-[#101720] p-5">
+                <ContentSection label="Settings" title="Account and privacy">
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ecae6]">Email</p>
+                      <p className="mt-2 text-sm font-medium text-white">{user.email || 'No email on file'}</p>
+                      <p className="mt-2 text-sm text-white/60">
+                        {user.emailVerifiedAt ? 'Verified sign-in email on this account.' : 'This email still needs verification.'}
+                      </p>
+                    </div>
+                    <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#f4d35e]">Comment permissions</p>
+                      <p className="mt-2 text-sm font-medium text-white">{formatCommentPermissionLabel(profile.commentPermission)}</p>
+                      <p className="mt-2 text-sm text-white/60">
+                        This applies to the conversation around your reviews and public lists.
+                      </p>
+                    </div>
+                    <div className="rounded-[1rem] border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2a9d8f]">Account flow</p>
+                      <p className="mt-2 text-sm font-medium text-white">Edit profile, avatar, password, permissions, and account deletion in one settings page.</p>
+                      <p className="mt-2 text-sm text-white/60">
+                        Keeping edits out of the main profile tab makes this page cleaner and easier to browse.
+                      </p>
+                      <Link
+                        href="/profile/settings"
+                        className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#8ecae6]/25 bg-[#8ecae6]/12 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#d7f2ff] transition hover:bg-[#8ecae6]/18"
+                      >
+                        <Settings2 className="h-3.5 w-3.5" />
+                        Open account settings
+                      </Link>
+                    </div>
+                  </div>
+                </ContentSection>
+              </div>
+            </section>
+          </div>
 
-            <div className="rounded-[1.35rem] border border-white/10 bg-[#101720] p-5">
-              <ContentSection label="Profile Tools" title="Edit your public identity">
-                <div className="mt-4">
-                  <ProfileEditor profile={profile} onProfileChange={setProfile} />
-                </div>
-              </ContentSection>
-            </div>
-          </section>
+          <FavoriteManager profile={profile} onProfileChange={setProfile} />
         </div>
       ) : null}
 
@@ -447,8 +467,6 @@ export default function ProfilePage() {
           <ListManager userId={profile.id} lists={sortedLists} onListsChange={setLists} />
         </div>
       ) : null}
-
-      <FavoriteManager profile={profile} onProfileChange={setProfile} />
     </main>
   )
 }
@@ -465,6 +483,13 @@ function ProfileHeader({ profile, onSelectTab }: { profile: Profile; onSelectTab
               <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/72">
                 Your profile
               </span>
+              <Link
+                href="/profile/settings"
+                className="inline-flex items-center gap-2 rounded-full border border-[#f4d35e]/28 bg-[#f4d35e]/14 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#fff0be] transition hover:bg-[#f4d35e]/22"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Edit profile
+              </Link>
             </div>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">@{profile.username}</p>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/70">
@@ -527,22 +552,75 @@ function ProfileStat({ label, value, onClick, href }: { label: string; value: nu
   )
 }
 
-function ReleaseStrip({ releases, emptyLabel }: { releases: DiaryEntry['release'][]; emptyLabel: string }) {
-  return releases.length ? (
+function ReleaseStrip({
+  releases,
+  emptyLabel,
+  fillTo,
+  emptyLink,
+  emptyCardLabel = 'Add favorite',
+}: {
+  releases: DiaryEntry['release'][]
+  emptyLabel: string
+  fillTo?: number
+  emptyLink?: string
+  emptyCardLabel?: string
+}) {
+  const emptySlots = fillTo ? Math.max(0, fillTo - releases.length) : 0
+
+  if (!releases.length && !emptySlots) {
+    return <EmptyCard text={emptyLabel} className="mt-4" />
+  }
+
+  return (
     <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
       {releases.map((release) => (
         <Link key={release.id} href={`/releases/${release.id}`} className="group block">
           <CoverArt title={release.title} artworkUrl={release.artworkUrl} className="rounded-[0.85rem] transition duration-200 group-hover:-translate-y-1" />
         </Link>
       ))}
+      {Array.from({ length: emptySlots }).map((_, index) =>
+        emptyLink ? (
+          <Link
+            key={`empty-release-slot-${index}`}
+            href={emptyLink}
+            className="group flex aspect-square items-center justify-center rounded-[0.95rem] border border-dashed border-white/14 bg-white/[0.03] p-4 text-center transition hover:border-[#8ecae6]/32 hover:bg-white/[0.06]"
+          >
+            <div className="flex flex-col items-center gap-3 text-white/56 transition group-hover:text-white/78">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04]">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">{emptyCardLabel}</p>
+                <p className="mt-1 text-[0.72rem] text-white/44">Open curated favorites</p>
+              </div>
+            </div>
+          </Link>
+        ) : null,
+      )}
     </div>
-  ) : (
-    <EmptyCard text={emptyLabel} className="mt-4" />
   )
 }
 
-function ArtistStrip({ artists, emptyLabel }: { artists: Profile['favoriteArtists'][number]['artist'][]; emptyLabel: string }) {
-  return artists.length ? (
+function ArtistStrip({
+  artists,
+  emptyLabel,
+  fillTo,
+  emptyLink,
+  emptyCardLabel = 'Add artist',
+}: {
+  artists: Profile['favoriteArtists'][number]['artist'][]
+  emptyLabel: string
+  fillTo?: number
+  emptyLink?: string
+  emptyCardLabel?: string
+}) {
+  const emptySlots = fillTo ? Math.max(0, fillTo - artists.length) : 0
+
+  if (!artists.length && !emptySlots) {
+    return <EmptyCard text={emptyLabel} className="mt-4" />
+  }
+
+  return (
     <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
       {artists.map((artist) => (
         <Link key={artist.id} href={`/artists/${artist.id}`} className="rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-5 transition hover:bg-white/[0.06]">
@@ -550,9 +628,26 @@ function ArtistStrip({ artists, emptyLabel }: { artists: Profile['favoriteArtist
           <p className="mt-2 text-[0.72rem] uppercase tracking-[0.18em] text-white/42">{artist.type}</p>
         </Link>
       ))}
+      {Array.from({ length: emptySlots }).map((_, index) =>
+        emptyLink ? (
+          <Link
+            key={`empty-artist-slot-${index}`}
+            href={emptyLink}
+            className="group flex min-h-[152px] items-center justify-center rounded-[1rem] border border-dashed border-white/14 bg-white/[0.03] px-4 py-5 text-center transition hover:border-[#8ecae6]/32 hover:bg-white/[0.06]"
+          >
+            <div className="flex flex-col items-center gap-3 text-white/56 transition group-hover:text-white/78">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04]">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">{emptyCardLabel}</p>
+                <p className="mt-1 text-[0.72rem] text-white/44">Open curated favorites</p>
+              </div>
+            </div>
+          </Link>
+        ) : null,
+      )}
     </div>
-  ) : (
-    <EmptyCard text={emptyLabel} className="mt-4" />
   )
 }
 

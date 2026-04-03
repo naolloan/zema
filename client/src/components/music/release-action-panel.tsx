@@ -378,7 +378,7 @@ export function ReleaseActionPanel({ release, onReleaseChange, onDiaryCreated }:
           className="min-h-[100px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-black placeholder:text-white/36 outline-none"
         />
         <textarea
-          placeholder="Optional review text. Add at least 10 characters to publish a review with this diary entry."
+          placeholder="Optional review text. Write whatever you want if you want this diary entry to publish a review too."
           value={diaryForm.reviewContent}
           onChange={(event) => setDiaryForm((current) => ({ ...current, reviewContent: event.target.value }))}
           className="min-h-[120px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-black placeholder:text-white/36 outline-none"

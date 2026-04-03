@@ -150,7 +150,7 @@ export function FavoriteManager({ profile, onProfileChange }: FavoriteManagerPro
   }
 
   return (
-    <div className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6">
+    <div id="curated-favorites" className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8ecae6]">Curated Favorites</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Shape your public taste shelves</h3>

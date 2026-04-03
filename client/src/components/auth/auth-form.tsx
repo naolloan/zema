@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { Input } from '@/components/ui/input'
-import { getGoogleAuthUrl, loginUser, registerUser, resendVerificationEmail } from '@/lib/auth-api'
+import { PasswordInput } from '@/components/ui/password-input'
+import { checkUsernameAvailability, getGoogleAuthUrl, loginUser, registerUser, resendVerificationEmail } from '@/lib/auth-api'
 import { useAuthStore } from '@/store/auth-store'
 
 interface AuthFormProps {
@@ -23,6 +24,13 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewReason, setPreviewReason] = useState<string | null>(null)
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
+  const [usernameStatus, setUsernameStatus] = useState<{
+    state: 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+    message: string
+  }>({
+    state: 'idle',
+    message: '',
+  })
   const [form, setForm] = useState({
     email: '',
     username: '',
@@ -32,6 +40,43 @@ export function AuthForm({ mode }: AuthFormProps) {
   })
 
   const isRegister = mode === 'register'
+
+  useEffect(() => {
+    if (!isRegister) {
+      return
+    }
+
+    const candidate = form.username.trim()
+    if (!candidate) {
+      setUsernameStatus({ state: 'idle', message: '' })
+      return
+    }
+
+    setUsernameStatus({ state: 'checking', message: 'Checking username...' })
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const availability = await checkUsernameAvailability(candidate)
+        if (!availability.valid) {
+          setUsernameStatus({ state: 'invalid', message: availability.reason || 'Invalid username' })
+          return
+        }
+
+        if (!availability.available) {
+          setUsernameStatus({ state: 'taken', message: availability.reason || 'That username is already taken' })
+          return
+        }
+
+        setUsernameStatus({ state: 'available', message: 'Username is available' })
+      } catch {
+        setUsernameStatus({ state: 'idle', message: '' })
+      }
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [form.username, isRegister])
 
   function getErrorMessage(caught: any) {
     return caught?.response?.data?.error || caught?.response?.data?.error?.message || 'Something went wrong. Please try again.'
@@ -52,6 +97,16 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       if (isRegister) {
+        if (usernameStatus.state === 'checking') {
+          setError('Please wait while we check that username.')
+          return
+        }
+
+        if (usernameStatus.state === 'taken' || usernameStatus.state === 'invalid') {
+          setError(usernameStatus.message || 'Please choose a different username.')
+          return
+        }
+
         const result = await registerUser({
           email: form.email,
           username: form.username,
@@ -144,13 +199,28 @@ export function AuthForm({ mode }: AuthFormProps) {
           required
         />
         {isRegister ? (
-          <Input
+          <>
+            <Input
             placeholder="Username"
             value={form.username}
             onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
             className="h-12 rounded-2xl border-white/10 bg-white/8 text-black placeholder:text-white/36"
             required
-          />
+            />
+            {usernameStatus.state !== 'idle' ? (
+              <p
+                className={
+                  usernameStatus.state === 'available'
+                    ? 'px-1 text-xs text-[#74e6b2]'
+                    : usernameStatus.state === 'checking'
+                      ? 'px-1 text-xs text-white/60'
+                      : 'px-1 text-xs text-[#ffb4a0]'
+                }
+              >
+                {usernameStatus.message}
+              </p>
+            ) : null}
+          </>
         ) : null}
         {isRegister ? (
           <Input
@@ -160,8 +230,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             className="h-12 rounded-2xl border-white/10 bg-white/8 text-black placeholder:text-white/36"
           />
         ) : null}
-        <Input
-          type="password"
+        <PasswordInput
           placeholder="Password"
           value={form.password}
           onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
@@ -173,7 +242,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             placeholder="Short bio (optional)"
             value={form.bio}
             onChange={(event) => setForm((current) => ({ ...current, bio: event.target.value }))}
-            className="min-h-[120px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/20"
+            className="min-h-[120px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-black placeholder:text-white/36 outline-none transition focus:border-white/20"
           />
         ) : null}
       </div>
@@ -203,7 +272,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (isRegister && usernameStatus.state === 'checking')}
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f4d35e] px-6 text-sm font-semibold text-[#111318] transition hover:bg-[#ffe082] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {loading ? <BrandLoader className="h-4 w-auto" /> : null}

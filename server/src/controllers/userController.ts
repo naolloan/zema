@@ -8,6 +8,9 @@ import { AuthRequest } from '../middleware/auth';
 import { releaseSummaryInclude, reviewInclude, serializeArtistSummary, serializeReleaseSummary, serializeReview, serializeUserSummary } from '../utils/serializers';
 
 const AVATAR_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'avatars');
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]+$/;
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 20;
 
 function normalizeSearchText(value: string | null | undefined) {
   return (value || '').trim().toLowerCase();
@@ -50,6 +53,7 @@ function scoreQueryMatch(query: string, candidate: string | null | undefined) {
 
 class UserController {
   constructor() {
+    this.checkUsernameAvailability = this.checkUsernameAvailability.bind(this);
     this.searchUsers = this.searchUsers.bind(this);
     this.getProfile = this.getProfile.bind(this);
     this.updateProfile = this.updateProfile.bind(this);
@@ -72,6 +76,63 @@ class UserController {
     this.getMyNotifications = this.getMyNotifications.bind(this);
     this.markNotificationsRead = this.markNotificationsRead.bind(this);
     this.markNotificationReadState = this.markNotificationReadState.bind(this);
+  }
+
+  async checkUsernameAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+      const currentUserId = (req as AuthRequest).user?.id;
+      const rawUsername = String(req.query.username || '').trim();
+
+      if (!rawUsername) {
+        return next(createError('Username is required', 400));
+      }
+
+      if (rawUsername.length < USERNAME_MIN_LENGTH || rawUsername.length > USERNAME_MAX_LENGTH) {
+        res.json({
+          success: true,
+          data: {
+            available: false,
+            valid: false,
+            normalized: rawUsername,
+            reason: `Username must be between ${USERNAME_MIN_LENGTH} and ${USERNAME_MAX_LENGTH} characters`,
+          },
+        });
+        return;
+      }
+
+      if (!USERNAME_REGEX.test(rawUsername)) {
+        res.json({
+          success: true,
+          data: {
+            available: false,
+            valid: false,
+            normalized: rawUsername,
+            reason: 'Username can only include letters, numbers, periods, hyphens, and underscores',
+          },
+        });
+        return;
+      }
+
+      const existingUsernameUser = await prisma.user.findFirst({
+        where: {
+          id: { not: currentUserId || undefined },
+          username: { equals: rawUsername, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+
+      res.json({
+        success: true,
+        data: {
+          available: !existingUsernameUser,
+          valid: true,
+          normalized: rawUsername,
+          reason: existingUsernameUser ? 'That username is already taken' : null,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
   async searchUsers(req: Request, res: Response, next: NextFunction) {
@@ -180,8 +241,31 @@ class UserController {
   async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = (req as AuthRequest).user!.id;
-      const { displayName, bio, avatarUrl, commentPermission } = req.body;
+      const { username, displayName, bio, avatarUrl, commentPermission } = req.body;
+      const normalizedUsername = typeof username === 'string' ? username.trim() : undefined;
       const normalizedAvatarUrl = typeof avatarUrl === 'string' ? avatarUrl.trim() : undefined;
+
+      if (normalizedUsername !== undefined) {
+        if (normalizedUsername.length < USERNAME_MIN_LENGTH || normalizedUsername.length > USERNAME_MAX_LENGTH) {
+          return next(createError(`Username must be between ${USERNAME_MIN_LENGTH} and ${USERNAME_MAX_LENGTH} characters`, 400));
+        }
+
+        if (!USERNAME_REGEX.test(normalizedUsername)) {
+          return next(createError('Username can only include letters, numbers, periods, hyphens, and underscores', 400));
+        }
+
+        const existingUsernameUser = await prisma.user.findFirst({
+          where: {
+            id: { not: userId },
+            username: { equals: normalizedUsername, mode: 'insensitive' },
+          },
+          select: { id: true },
+        });
+
+        if (existingUsernameUser) {
+          return next(createError('That username is already taken', 409));
+        }
+      }
 
       if (normalizedAvatarUrl) {
         const isHttpImage = /^https?:\/\/.+/i.test(normalizedAvatarUrl);
@@ -208,6 +292,7 @@ class UserController {
       const updatedUser = await prisma.user.update({
         where: { id: userId },
         data: {
+          username: normalizedUsername || undefined,
           displayName,
           bio,
           avatarUrl: normalizedAvatarUrl || null,

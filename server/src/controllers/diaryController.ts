@@ -19,6 +19,7 @@ class DiaryController {
     try {
       const { releaseId, listenedAt, notes, createReview, reviewContent } = req.body;
       const userId = (req as AuthRequest).user!.id;
+      const normalizedReviewContent = typeof reviewContent === 'string' ? reviewContent.trim() : '';
 
       if (!releaseId || !listenedAt) {
         return next(createError('ReleaseId and listenedAt are required', 400));
@@ -30,11 +31,7 @@ class DiaryController {
           throw createError('Release not found', 404);
         }
 
-        if (createReview && reviewContent) {
-          if (reviewContent.length < 10) {
-            throw createError('Review content must be at least 10 characters long', 400);
-          }
-
+        if (createReview && normalizedReviewContent) {
           const existingReview = await tx.review.findUnique({
             where: {
               userId_releaseId: {
@@ -65,10 +62,10 @@ class DiaryController {
           },
         });
 
-        if (createReview && reviewContent) {
+        if (createReview && normalizedReviewContent) {
           await tx.review.create({
             data: {
-              content: reviewContent,
+              content: normalizedReviewContent,
               userId,
               releaseId,
               diaryEntryId: diaryEntry.id,

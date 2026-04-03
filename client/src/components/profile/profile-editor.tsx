@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ImagePlus, UploadCloud } from 'lucide-react'
 import { BrandLoader } from '@/components/brand/brand-logo'
+import { PasswordInput } from '@/components/ui/password-input'
 import type { Profile, User } from '@/types'
-import { changePassword, updateMyProfile, uploadMyAvatar } from '@/lib/auth-api'
+import { changePassword, checkUsernameAvailability, deleteMyAccount, updateMyProfile, uploadMyAvatar } from '@/lib/auth-api'
 import { useAuthStore } from '@/store/auth-store'
 
 interface ProfileEditorProps {
@@ -45,11 +47,14 @@ async function buildCroppedAvatar(src: string, zoom: number) {
 }
 
 export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) {
+  const router = useRouter()
   const setSession = useAuthStore((state) => state.setSession)
+  const clearSession = useAuthStore((state) => state.clearSession)
   const token = useAuthStore((state) => state.token)
   const currentUser = useAuthStore((state) => state.user)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [form, setForm] = useState({
+    username: profile.username || '',
     displayName: profile.displayName || '',
     bio: profile.bio || '',
     avatarUrl: profile.avatarUrl || '',
@@ -62,6 +67,7 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
   const [dragActive, setDragActive] = useState(false)
   const [loading, setLoading] = useState(false)
   const [passwordLoading, setPasswordLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [passwordForm, setPasswordForm] = useState({
@@ -69,9 +75,21 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
     newPassword: '',
     confirmPassword: '',
   })
+  const [deleteForm, setDeleteForm] = useState({
+    currentPassword: '',
+    confirmation: '',
+  })
+  const [usernameStatus, setUsernameStatus] = useState<{
+    state: 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+    message: string
+  }>({
+    state: 'idle',
+    message: '',
+  })
 
   useEffect(() => {
     setForm({
+      username: profile.username || '',
       displayName: profile.displayName || '',
       bio: profile.bio || '',
       avatarUrl: profile.avatarUrl || '',
@@ -82,6 +100,45 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
     setUploadSource(null)
     setUploadZoom(1)
   }, [profile])
+
+  useEffect(() => {
+    const candidate = form.username.trim()
+    const currentUsername = (profile.username || '').trim()
+
+    if (!candidate) {
+      setUsernameStatus({ state: 'idle', message: '' })
+      return
+    }
+
+    if (candidate.localeCompare(currentUsername, undefined, { sensitivity: 'accent' }) === 0) {
+      setUsernameStatus({ state: 'idle', message: '' })
+      return
+    }
+
+    setUsernameStatus({ state: 'checking', message: 'Checking username...' })
+    const timeout = window.setTimeout(async () => {
+      try {
+        const availability = await checkUsernameAvailability(candidate)
+        if (!availability.valid) {
+          setUsernameStatus({ state: 'invalid', message: availability.reason || 'Invalid username' })
+          return
+        }
+
+        if (!availability.available) {
+          setUsernameStatus({ state: 'taken', message: availability.reason || 'That username is already taken' })
+          return
+        }
+
+        setUsernameStatus({ state: 'available', message: 'Username is available' })
+      } catch {
+        setUsernameStatus({ state: 'idle', message: '' })
+      }
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [form.username, profile.username])
 
   useEffect(() => {
     if (!uploadSource) {
@@ -227,6 +284,16 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
     resetMessages()
 
     try {
+      if (usernameStatus.state === 'checking') {
+        setError('Please wait while we check that username.')
+        return
+      }
+
+      if (usernameStatus.state === 'taken' || usernameStatus.state === 'invalid') {
+        setError(usernameStatus.message || 'Please choose a different username.')
+        return
+      }
+
       let nextAvatarUrl = form.avatarUrl.trim()
 
       if (avatarSource === 'upload' && uploadSource) {
@@ -236,6 +303,7 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
       }
 
       const updatedUser = await updateMyProfile({
+        username: form.username || undefined,
         displayName: form.displayName || undefined,
         bio: form.bio || undefined,
         avatarUrl: nextAvatarUrl || undefined,
@@ -255,6 +323,7 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
       }
 
       setForm({
+        username: updatedUser.username || '',
         displayName: updatedUser.displayName || '',
         bio: updatedUser.bio || '',
         avatarUrl: updatedUser.avatarUrl || '',
@@ -295,12 +364,63 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
     }
   }
 
+  async function handleDeleteAccount() {
+    setDeleteLoading(true)
+    resetMessages()
+
+    try {
+      if (deleteForm.confirmation.trim().toUpperCase() !== 'DELETE') {
+        setError('Type DELETE to confirm account deletion.')
+        return
+      }
+
+      const confirmed = window.confirm('This action permanently deletes your account. Continue?')
+      if (!confirmed) {
+        return
+      }
+
+      await deleteMyAccount({
+        confirmation: deleteForm.confirmation,
+        currentPassword: deleteForm.currentPassword || undefined,
+      })
+
+      clearSession()
+      router.replace('/')
+      router.refresh()
+    } catch (caught: any) {
+      setError(caught?.response?.data?.error || caught?.message || 'Unable to delete your account right now.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#f4d35e]">Edit Profile</p>
         <h3 className="mt-2 text-2xl font-semibold text-white">Tune how you show up</h3>
       </div>
+
+      <input
+        value={form.username}
+        onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
+        placeholder="Username"
+        className="h-11 w-full rounded-2xl border border-white/10 bg-white/8 px-4 text-sm text-black placeholder:text-black/36 outline-none"
+      />
+      <p className="-mt-1 px-1 text-xs text-white/55">Unique handle used in profile links and sign in. Letters, numbers, `.`, `_`, and `-`.</p>
+      {usernameStatus.state !== 'idle' ? (
+        <p
+          className={
+            usernameStatus.state === 'available'
+              ? '-mt-1 px-1 text-xs text-[#74e6b2]'
+              : usernameStatus.state === 'checking'
+                ? '-mt-1 px-1 text-xs text-white/60'
+                : '-mt-1 px-1 text-xs text-[#ffb4a0]'
+          }
+        >
+          {usernameStatus.message}
+        </p>
+      ) : null}
 
       <input
         value={form.displayName}
@@ -443,24 +563,21 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
           <p className="mt-1 text-xs text-white/55">Enter your current password, then choose and confirm a new one. If you signed up with Google and never set a password, use the forgot-password flow first.</p>
         </div>
         <div className="mt-4 space-y-3">
-          <input
-            type="password"
+          <PasswordInput
             value={passwordForm.currentPassword}
             onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
             onKeyDown={handlePasswordFieldKeyDown}
             placeholder="Current password"
             className="h-11 w-full rounded-2xl border border-white/10 bg-white/8 px-4 text-sm text-black placeholder:text-black/36 outline-none"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={passwordForm.newPassword}
             onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))}
             onKeyDown={handlePasswordFieldKeyDown}
             placeholder="New password"
             className="h-11 w-full rounded-2xl border border-white/10 bg-white/8 px-4 text-sm text-black placeholder:text-black/36 outline-none"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={passwordForm.confirmPassword}
             onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
             onKeyDown={handlePasswordFieldKeyDown}
@@ -479,12 +596,47 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
         </div>
       </div>
 
+      <div className="rounded-[1.5rem] border border-[#ff7b54]/25 bg-[#ff7b54]/8 p-4">
+        <div>
+          <p className="text-sm font-semibold text-[#ffd9cd]">Delete account</p>
+          <p className="mt-1 text-xs text-[#ffd9cd]/72">
+            This permanently deletes your account and related private data. Public content tied to your account may also be removed.
+          </p>
+          <p className="mt-2 text-xs text-[#ffd9cd]/72">
+            Enter your current password if you use email/password sign in. For Google-created accounts, password can be left blank.
+          </p>
+        </div>
+        <div className="mt-4 space-y-3">
+          <PasswordInput
+            value={deleteForm.currentPassword}
+            onChange={(event) => setDeleteForm((current) => ({ ...current, currentPassword: event.target.value }))}
+            placeholder="Current password (if applicable)"
+            className="h-11 w-full rounded-2xl border border-white/14 bg-white/8 px-4 text-sm text-black placeholder:text-black/36 outline-none"
+          />
+          <input
+            value={deleteForm.confirmation}
+            onChange={(event) => setDeleteForm((current) => ({ ...current, confirmation: event.target.value }))}
+            placeholder='Type "DELETE" to confirm'
+            className="h-11 w-full rounded-2xl border border-white/14 bg-white/8 px-4 text-sm text-black placeholder:text-black/36 outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            disabled={deleteLoading}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#ff7b54]/35 bg-[#ff7b54]/16 px-5 text-sm font-semibold text-[#ffd9cd] transition hover:bg-[#ff7b54]/24 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {deleteLoading ? <BrandLoader className="h-4 w-auto" /> : null}
+            Delete account
+          </button>
+        </div>
+      </div>
+
       {error ? <p className="rounded-2xl border border-[#ff7b54]/30 bg-[#ff7b54]/10 px-4 py-3 text-sm text-[#ffd6cc]">{error}</p> : null}
       {message ? <p className="rounded-2xl border border-[#2a9d8f]/30 bg-[#2a9d8f]/10 px-4 py-3 text-sm text-[#d1fff3]">{message}</p> : null}
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || usernameStatus.state === 'checking'}
         className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#f4d35e] px-5 text-sm font-semibold text-[#111318] transition hover:bg-[#ffe082] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {loading ? <BrandLoader className="h-4 w-auto" /> : null}

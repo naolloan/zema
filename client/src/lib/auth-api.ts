@@ -30,6 +30,13 @@ export interface RegistrationResult {
   deliveryReason?: string | null
 }
 
+export interface UsernameAvailabilityResult {
+  available: boolean
+  valid: boolean
+  normalized: string
+  reason: string | null
+}
+
 export async function registerUser(payload: {
   email: string
   username: string
@@ -47,6 +54,13 @@ export async function loginUser(payload: {
 }): Promise<AuthSession> {
   const response = await api.post('/auth/login', payload)
   return response.data.data as AuthSession
+}
+
+export async function checkUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
+  const response = await api.get('/users/check-username', {
+    params: { username },
+  })
+  return response.data.data as UsernameAvailabilityResult
 }
 
 export async function resendVerificationEmail(email: string): Promise<{ previewUrl: string | null; deliveryMode?: 'email' | 'preview'; deliveryReason?: string | null }> {
@@ -77,6 +91,15 @@ export async function changePassword(payload: {
   confirmPassword: string
 }): Promise<void> {
   await api.post('/auth/change-password', payload)
+}
+
+export async function deleteMyAccount(payload: {
+  confirmation: string
+  currentPassword?: string
+}): Promise<void> {
+  await api.delete('/auth/delete-account', {
+    data: payload,
+  })
 }
 
 export function getGoogleAuthUrl() {
@@ -155,6 +178,7 @@ export async function getFollowing(userId: string, limit = 20, offset = 0): Prom
 }
 
 export async function updateMyProfile(payload: {
+  username?: string
   displayName?: string
   bio?: string
   avatarUrl?: string

@@ -247,6 +247,13 @@ export function SiteHeader() {
                       >
                         Profile
                       </Link>
+                      <Link
+                        href="/profile/settings"
+                        onClick={() => setMenuOpen(false)}
+                        className="mt-1 block rounded-xl px-3 py-2 text-sm font-medium text-white/78 transition hover:bg-white/[0.06] hover:text-white"
+                      >
+                        Account Settings
+                      </Link>
                       <button
                         type="button"
                         onClick={handleLogout}

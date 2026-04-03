@@ -1,5 +1,6 @@
 'use client'
 
+import { UserCircle2 } from 'lucide-react'
 import type { User } from '@/types'
 
 interface UserAvatarProps {
@@ -10,12 +11,6 @@ interface UserAvatarProps {
 
 export function UserAvatar({ user, className = 'h-16 w-16', textClassName = 'text-xl' }: UserAvatarProps) {
   const label = user.displayName || user.username
-  const initials = label
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || user.username.slice(0, 2).toUpperCase()
 
   if (user.avatarUrl) {
     return (
@@ -29,8 +24,8 @@ export function UserAvatar({ user, className = 'h-16 w-16', textClassName = 'tex
   }
 
   return (
-    <div className={`${className} flex items-center justify-center rounded-full border border-white/12 bg-gradient-to-br from-[#ff7b54] via-[#f4d35e] to-[#2a9d8f] text-[#111318] shadow-[0_12px_36px_rgba(0,0,0,0.28)]`}>
-      <span className={`font-semibold uppercase ${textClassName}`}>{initials}</span>
+    <div className={`${className} flex items-center justify-center rounded-full border border-white/12 bg-white/[0.06] text-white/48 shadow-[0_12px_36px_rgba(0,0,0,0.28)]`}>
+      <UserCircle2 className={`h-[68%] w-[68%] ${textClassName}`} />
     </div>
   )
 }

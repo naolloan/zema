@@ -4,6 +4,7 @@ import { userController } from '../controllers/userController';
 
 const router = Router();
 
+router.get('/check-username', optionalAuth, userController.checkUsernameAvailability);
 router.get('/search', optionalAuth, userController.searchUsers);
 router.get('/me', authenticateToken, userController.getProfile);
 router.get('/me/notifications', authenticateToken, userController.getMyNotifications);

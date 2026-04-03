@@ -21,13 +21,10 @@ class ReviewController {
     try {
       const { content, releaseId } = req.body;
       const userId = (req as AuthRequest).user!.id;
+      const normalizedContent = typeof content === 'string' ? content.trim() : '';
 
-      if (!content || !releaseId) {
+      if (!normalizedContent || !releaseId) {
         return next(createError('Content and releaseId are required', 400));
-      }
-
-      if (content.length < 10) {
-        return next(createError('Review content must be at least 10 characters long', 400));
       }
 
       const release = await prisma.release.findUnique({ where: { id: releaseId } });
@@ -50,7 +47,7 @@ class ReviewController {
 
       const review = await prisma.review.create({
         data: {
-          content,
+          content: normalizedContent,
           userId,
           releaseId,
         },
@@ -71,13 +68,10 @@ class ReviewController {
       const { id } = req.params;
       const { content } = req.body;
       const userId = (req as AuthRequest).user!.id;
+      const normalizedContent = typeof content === 'string' ? content.trim() : '';
 
-      if (!content) {
+      if (!normalizedContent) {
         return next(createError('Content is required', 400));
-      }
-
-      if (content.length < 10) {
-        return next(createError('Review content must be at least 10 characters long', 400));
       }
 
       const review = await prisma.review.findUnique({ where: { id } });
@@ -91,7 +85,7 @@ class ReviewController {
 
       const updatedReview = await prisma.review.update({
         where: { id },
-        data: { content },
+        data: { content: normalizedContent },
         include: reviewInclude,
       });
 
