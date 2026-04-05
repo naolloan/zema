@@ -162,6 +162,7 @@ For local development, a custom domain is not required if you are comfortable us
 ```text
 music-platform/
 ├── client/                  # Next.js frontend
+├── mobile/                  # Expo / React Native mobile app foundation
 ├── server/                  # Express API
 ├── shared/                  # Shared utilities/types
 ├── README.md
@@ -177,6 +178,7 @@ npm run dev
 npm run build
 npm run client:build
 npm run server:build
+npm run mobile:dev
 npm run db:migrate
 ```
 
