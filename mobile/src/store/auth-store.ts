@@ -11,6 +11,7 @@ interface AuthState {
   user: Session['user'] | null
   hydrate: () => Promise<void>
   setSession: (session: Session) => Promise<void>
+  setUser: (user: Session['user']) => Promise<void>
   clearSession: () => Promise<void>
 }
 
@@ -39,6 +40,26 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session))
     setApiToken(session.token)
     set({ token: session.token, user: session.user })
+  },
+  setUser: async (user) => {
+    let nextToken: string | null = null
+
+    set((current) => {
+      nextToken = current.token
+      return { user }
+    })
+
+    if (!nextToken) {
+      return
+    }
+
+    await SecureStore.setItemAsync(
+      SESSION_KEY,
+      JSON.stringify({
+        token: nextToken,
+        user,
+      } satisfies Session),
+    )
   },
   clearSession: async () => {
     await SecureStore.deleteItemAsync(SESSION_KEY)
