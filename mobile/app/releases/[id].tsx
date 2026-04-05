@@ -7,11 +7,12 @@ import { FeatureCard } from '@/components/feature-card'
 import { InfoBanner } from '@/components/info-banner'
 import { MobileRatingPicker } from '@/components/mobile-rating-picker'
 import { ScreenShell } from '@/components/screen-shell'
+import { TextField } from '@/components/text-field'
 import { addWantToHear, clearReleaseRating, getReleaseById, likeRelease, rateRelease, removeWantToHear, unlikeRelease } from '@/lib/music-api'
 import { formatArtistCredits, formatRatingValue, formatReleaseType } from '@/lib/format'
 import { useAuthStore } from '@/store/auth-store'
 import { colors, spacing } from '@/theme/tokens'
-import { addListItem, getMyLists } from '@/lib/auth-api'
+import { addListItem, createDiaryEntry, getMyLists } from '@/lib/auth-api'
 
 export default function ReleaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -21,6 +22,8 @@ export default function ReleaseDetailScreen() {
   const queryClient = useQueryClient()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [listenedDate, setListenedDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [diaryNotes, setDiaryNotes] = useState('')
 
   const releaseQuery = useQuery({
     queryKey: ['mobile-release-detail', releaseId],
@@ -114,6 +117,26 @@ export default function ReleaseDetailScreen() {
     onError: (caught: any) => {
       setActionMessage(null)
       setActionError(caught?.response?.data?.error || 'Unable to add this release to the selected list.')
+    },
+  })
+
+  const diaryMutation = useMutation({
+    mutationFn: () =>
+      createDiaryEntry({
+        releaseId,
+        listenedAt: new Date(`${listenedDate}T12:00:00.000Z`).toISOString(),
+        notes: diaryNotes.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      setActionError(null)
+      setActionMessage('Logged to your diary.')
+      setDiaryNotes('')
+      await queryClient.invalidateQueries({ queryKey: ['mobile-release-detail', releaseId] })
+      await queryClient.invalidateQueries({ queryKey: ['mobile-my-diary'] })
+    },
+    onError: (caught: any) => {
+      setActionMessage(null)
+      setActionError(caught?.response?.data?.error || 'Unable to log this release right now.')
     },
   })
 
@@ -237,6 +260,39 @@ export default function ReleaseDetailScreen() {
                 )}
               </View>
             </View>
+          ) : null}
+        </View>
+
+        <View style={styles.actionCard}>
+          <Text style={styles.sectionTitle}>Log to diary</Text>
+          {!token ? <Text style={styles.helperText}>Sign in on mobile to log this release to your diary.</Text> : null}
+          {token ? (
+            <>
+              <TextField
+                label="Listened on"
+                value={listenedDate}
+                onChangeText={setListenedDate}
+                autoCapitalize="none"
+                autoCorrect={false}
+                hint="Use YYYY-MM-DD"
+              />
+              <TextField
+                label="Notes"
+                value={diaryNotes}
+                onChangeText={setDiaryNotes}
+                multiline
+                hint="Optional thoughts for this listen."
+              />
+              <ActionPill
+                label={diaryMutation.isPending ? 'Logging…' : 'Log this release'}
+                disabled={!token || diaryMutation.isPending || !/^\d{4}-\d{2}-\d{2}$/.test(listenedDate)}
+                onPress={() => {
+                  setActionMessage(null)
+                  setActionError(null)
+                  diaryMutation.mutate()
+                }}
+              />
+            </>
           ) : null}
         </View>
 

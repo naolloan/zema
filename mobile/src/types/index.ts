@@ -127,6 +127,14 @@ export interface MobileListSummary {
   itemsCount: number
 }
 
+export interface MobileDiaryEntry {
+  id: string
+  listenedAt: string
+  notes: string | null
+  createdAt?: string
+  release: MobileReleaseSummary
+}
+
 export interface MobileChartItem {
   release: MobileReleaseSummary
   rank: number
