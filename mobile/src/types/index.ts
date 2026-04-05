@@ -116,6 +116,17 @@ export interface MobileReleaseDetail extends MobileReleaseSummary {
   isWantToHear?: boolean
 }
 
+export interface MobileListSummary {
+  id: string
+  title: string
+  description: string | null
+  category: 'MIXED' | 'ALBUMS' | 'SINGLES' | 'EPS' | 'MIXTAPES'
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+  itemsCount: number
+}
+
 export interface MobileChartItem {
   release: MobileReleaseSummary
   rank: number

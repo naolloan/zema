@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { MobileApiEnvelope, PasswordResetRequestResult, RegistrationResult, Session } from '@/types'
+import type { MobileApiEnvelope, MobileListSummary, PasswordResetRequestResult, RegistrationResult, Session } from '@/types'
 
 export async function loginUser(payload: { email: string; password: string }) {
   const response = await api.post<MobileApiEnvelope<Session>>('/api/auth/login', payload)
@@ -24,6 +24,16 @@ export async function requestPasswordReset(email: string) {
 
 export async function logoutUser() {
   await api.post('/api/auth/logout')
+}
+
+export async function getMyLists(userId: string) {
+  const response = await api.get<MobileApiEnvelope<MobileListSummary[]>>(`/api/lists/user/${userId}`)
+  return response.data.data
+}
+
+export async function addListItem(listId: string, payload: { releaseId: string; notes?: string; position?: number }) {
+  const response = await api.post<MobileApiEnvelope<{ id: string }>>(`/api/lists/${listId}/items`, payload)
+  return response.data.data
 }
 
 export async function getMyProfile<T = Session['user']>(token?: string) {

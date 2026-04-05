@@ -33,3 +33,19 @@ export async function rateRelease(releaseId: string, value: number) {
 export async function clearReleaseRating(releaseId: string) {
   await api.delete(`/api/releases/${releaseId}/rate`)
 }
+
+export async function likeRelease(releaseId: string) {
+  await api.post(`/api/releases/${releaseId}/like`)
+}
+
+export async function unlikeRelease(releaseId: string) {
+  await api.delete(`/api/releases/${releaseId}/like`)
+}
+
+export async function addWantToHear(releaseId: string) {
+  await api.post(`/api/releases/${releaseId}/want-to-hear`)
+}
+
+export async function removeWantToHear(releaseId: string) {
+  await api.delete(`/api/releases/${releaseId}/want-to-hear`)
+}
