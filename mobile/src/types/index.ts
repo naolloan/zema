@@ -7,7 +7,21 @@ export interface MobileApiEnvelope<T> {
   message?: string
 }
 
-export interface AuthUser {
+export interface MobilePaginatedEnvelope<T> {
+  success: boolean
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export type CommentPermission = 'ANYONE' | 'FOLLOWING' | 'SELF'
+export type ListCategory = 'MIXED' | 'ALBUMS' | 'SINGLES' | 'EPS' | 'MIXTAPES'
+
+export interface MobileUser {
   id: string
   email?: string
   username: string
@@ -15,7 +29,20 @@ export interface AuthUser {
   bio: string | null
   avatarUrl: string | null
   emailVerifiedAt?: string | null
+  createdAt?: string
+  commentPermission?: CommentPermission
+  counts?: {
+    followers?: number
+    following?: number
+    reviews?: number
+    likedReleases?: number
+  }
+  isFollowing?: boolean
+  isFollowedBy?: boolean
+  isFriend?: boolean
 }
+
+export type AuthUser = MobileUser
 
 export interface Session {
   token: string
@@ -40,6 +67,7 @@ export interface MobileArtistSummary {
   id: string
   name: string
   type: 'INDIVIDUAL' | 'GROUP'
+  disambiguation?: string | null
   spotifyId?: string | null
   spotifyUrl?: string | null
 }
@@ -97,6 +125,9 @@ export interface MobileReleaseSummary {
   ratingCount?: number
   counts?: MobileReleaseCounts
   ranking?: MobileReleaseRanking | null
+  isLiked?: boolean
+  isWantToHear?: boolean
+  isLogged?: boolean
 }
 
 export interface MobileTrack {
@@ -112,22 +143,37 @@ export interface MobileReleaseDetail extends MobileReleaseSummary {
   tracks?: MobileTrack[]
   ratingBreakdown?: MobileReleaseRatingBreakdown
   userRating?: MobileUserRatingSummary | null
-  isLiked?: boolean
-  isWantToHear?: boolean
+}
+
+export interface MobileFavoriteRelease {
+  id: string
+  position: number
+  section: 'ALBUMS' | 'SONGS'
+  createdAt: string
+  user?: MobileUser
+  release: MobileReleaseSummary
+}
+
+export interface MobileFavoriteArtist {
+  id: string
+  position: number
+  createdAt: string
+  user?: MobileUser
+  artist: MobileArtistSummary
 }
 
 export interface MobileListSummary {
   id: string
   title: string
   description: string | null
-  category: 'MIXED' | 'ALBUMS' | 'SINGLES' | 'EPS' | 'MIXTAPES'
+  category: ListCategory
   isPublic: boolean
   createdAt: string
   updatedAt: string
   itemsCount: number
   likesCount?: number
   isLiked?: boolean
-  user?: AuthUser
+  user?: MobileUser
   previewReleases?: MobileReleaseSummary[]
 }
 
@@ -137,6 +183,7 @@ export interface MobileDiaryEntry {
   notes: string | null
   createdAt?: string
   release: MobileReleaseSummary
+  review?: MobileReview | null
 }
 
 export interface MobileReviewComment {
@@ -144,7 +191,7 @@ export interface MobileReviewComment {
   content: string
   createdAt: string
   updatedAt: string
-  user: AuthUser
+  user: MobileUser
 }
 
 export interface MobileReview {
@@ -152,7 +199,7 @@ export interface MobileReview {
   content: string
   createdAt: string
   updatedAt: string
-  user: AuthUser
+  user: MobileUser
   release: MobileReleaseSummary | null
   likesCount: number
   isLiked?: boolean
@@ -172,7 +219,7 @@ export interface MobileListComment {
   content: string
   createdAt: string
   updatedAt: string
-  user: AuthUser
+  user: MobileUser
 }
 
 export interface MobileListDetail extends MobileListSummary {
@@ -198,6 +245,59 @@ export interface MobileRating {
   value: number
   createdAt: string
   updatedAt?: string
+}
+
+export interface MobileWantToHearItem {
+  id: string
+  createdAt: string
+  release: MobileReleaseSummary
+}
+
+export interface MobileLikedReleaseItem {
+  id: string
+  createdAt: string
+  release: MobileReleaseSummary
+}
+
+export interface MobileNotificationItem {
+  id: string
+  type: 'follow' | 'review_like' | 'review_comment' | 'list_like'
+  createdAt: string
+  text: string
+  user: MobileUser
+  unread?: boolean
+  targetUrl?: string
+  release?: MobileReleaseSummary
+  list?: {
+    id: string
+    title: string
+  }
+}
+
+export interface MobileProfile extends MobileUser {
+  _count: {
+    reviews: number
+    ratings: number
+    diaryEntries: number
+    lists: number
+    wantToHear: number
+    followers?: number
+    following?: number
+  }
+  favoriteAlbums: MobileFavoriteRelease[]
+  favoriteSongs: MobileFavoriteRelease[]
+  favoriteArtists: MobileFavoriteArtist[]
+  counts?: {
+    followers: number
+    following: number
+    likedReleases?: number
+  }
+}
+
+export interface MobileFollowState {
+  isFollowing: boolean
+  isFollowedBy: boolean
+  isFriend: boolean
 }
 
 export interface MobileNavItem {

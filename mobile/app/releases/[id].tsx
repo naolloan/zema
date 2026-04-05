@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { ScrollView, StyleSheet, Text, View, Image, Pressable } from 'react-native'
+import { ScrollView, StyleSheet, Text, View, Image, Pressable, Linking } from 'react-native'
 import { AppHeading } from '@/components/app-heading'
 import { FeatureCard } from '@/components/feature-card'
 import { InfoBanner } from '@/components/info-banner'
@@ -13,7 +13,7 @@ import { addWantToHear, clearReleaseRating, createReview, getReleaseById, getRel
 import { formatArtistCredits, formatRatingValue, formatReleaseType } from '@/lib/format'
 import { useAuthStore } from '@/store/auth-store'
 import { colors, spacing } from '@/theme/tokens'
-import { addListItem, createDiaryEntry, getMyLists } from '@/lib/auth-api'
+import { addListItem, addReviewComment, createDiaryEntry, getMyLists } from '@/lib/auth-api'
 
 export default function ReleaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -26,6 +26,7 @@ export default function ReleaseDetailScreen() {
   const [listenedDate, setListenedDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [diaryNotes, setDiaryNotes] = useState('')
   const [reviewContent, setReviewContent] = useState('')
+  const [commentingReviewId, setCommentingReviewId] = useState<string | null>(null)
 
   const releaseQuery = useQuery({
     queryKey: ['mobile-release-detail', releaseId],
@@ -174,6 +175,23 @@ export default function ReleaseDetailScreen() {
     },
   })
 
+  const commentReviewMutation = useMutation({
+    mutationFn: async ({ reviewId, content }: { reviewId: string; content: string }) => {
+      setCommentingReviewId(reviewId)
+      return addReviewComment(reviewId, { content })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mobile-release-reviews', releaseId] })
+    },
+    onError: (caught: any) => {
+      setActionMessage(null)
+      setActionError(caught?.response?.data?.error || 'Unable to post that review comment right now.')
+    },
+    onSettled: () => {
+      setCommentingReviewId(null)
+    },
+  })
+
   if (releaseQuery.isLoading) {
     return (
       <ScreenShell>
@@ -262,6 +280,14 @@ export default function ReleaseDetailScreen() {
                 wantMutation.mutate()
               }}
             />
+            {release.spotifyUrl ? (
+              <ActionPill
+                label="Open in Spotify"
+                onPress={() => {
+                  void Linking.openURL(release.spotifyUrl!)
+                }}
+              />
+            ) : null}
           </View>
 
           {actionMessage ? <InfoBanner tone="success" text={actionMessage} /> : null}
@@ -399,7 +425,18 @@ export default function ReleaseDetailScreen() {
                 <ReviewCard
                   key={review.id}
                   review={review}
+                  allowComments={Boolean(token)}
+                  commenting={commentingReviewId === review.id && commentReviewMutation.isPending}
                   liking={likeReviewMutation.isPending}
+                  onAddComment={
+                    token
+                      ? (reviewId, content) => {
+                          setActionMessage(null)
+                          setActionError(null)
+                          commentReviewMutation.mutate({ reviewId, content })
+                        }
+                      : undefined
+                  }
                   onToggleLike={token ? (reviewId) => likeReviewMutation.mutate(reviewId) : undefined}
                 />
               ))
