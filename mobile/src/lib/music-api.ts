@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { MobileApiEnvelope, MobileChartResponse, MobileRating, MobileReleaseDetail, MobileReleaseSummary } from '@/types'
+import type { MobileApiEnvelope, MobileChartResponse, MobileRating, MobileReleaseDetail, MobileReleaseSummary, MobileReview } from '@/types'
 
 export async function getTopReleases(type?: string, limit = 10) {
   const response = await api.get<MobileApiEnvelope<MobileChartResponse>>('/api/charts/top-releases', {
@@ -48,4 +48,31 @@ export async function addWantToHear(releaseId: string) {
 
 export async function removeWantToHear(releaseId: string) {
   await api.delete(`/api/releases/${releaseId}/want-to-hear`)
+}
+
+export async function getReleaseReviews(releaseId: string, limit = 10, offset = 0, sort: 'recent' | 'popular' | 'oldest' = 'recent') {
+  const response = await api.get<{
+    success: boolean
+    data: MobileReview[]
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+  }>(`/api/releases/${releaseId}/reviews`, {
+    params: { limit, offset, sort },
+  })
+
+  return response.data
+}
+
+export async function createReview(payload: { releaseId: string; content: string }) {
+  const response = await api.post<MobileApiEnvelope<MobileReview>>('/api/reviews', payload)
+  return response.data.data
+}
+
+export async function toggleReviewLike(reviewId: string) {
+  const response = await api.post<MobileApiEnvelope<{ isLiked: boolean; message: string }>>(`/api/reviews/${reviewId}/like`)
+  return response.data.data
 }

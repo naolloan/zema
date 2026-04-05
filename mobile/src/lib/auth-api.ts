@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { MobileApiEnvelope, MobileDiaryEntry, MobileListSummary, PasswordResetRequestResult, RegistrationResult, Session } from '@/types'
+import type { MobileApiEnvelope, MobileDiaryEntry, MobileListDetail, MobileListSummary, PasswordResetRequestResult, RegistrationResult, Session } from '@/types'
 
 export async function loginUser(payload: { email: string; password: string }) {
   const response = await api.post<MobileApiEnvelope<Session>>('/api/auth/login', payload)
@@ -33,6 +33,38 @@ export async function getMyLists(userId: string) {
 
 export async function addListItem(listId: string, payload: { releaseId: string; notes?: string; position?: number }) {
   const response = await api.post<MobileApiEnvelope<{ id: string }>>(`/api/lists/${listId}/items`, payload)
+  return response.data.data
+}
+
+export async function getDiscoverLists(sort: 'weekly' | 'recent' | 'liked' = 'weekly', limit = 12, offset = 0) {
+  const response = await api.get<{
+    success: boolean
+    data: MobileListSummary[]
+    pagination: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+  }>('/api/lists/discover', {
+    params: { sort, limit, offset },
+  })
+
+  return response.data
+}
+
+export async function getListById(listId: string) {
+  const response = await api.get<MobileApiEnvelope<MobileListDetail>>(`/api/lists/${listId}`)
+  return response.data.data
+}
+
+export async function likeList(listId: string) {
+  const response = await api.post<MobileApiEnvelope<{ isLiked: boolean; likesCount: number }>>(`/api/lists/${listId}/like`)
+  return response.data.data
+}
+
+export async function unlikeList(listId: string) {
+  const response = await api.delete<MobileApiEnvelope<{ isLiked: boolean; likesCount: number }>>(`/api/lists/${listId}/like`)
   return response.data.data
 }
 

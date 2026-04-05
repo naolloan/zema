@@ -6,9 +6,10 @@ import { AppHeading } from '@/components/app-heading'
 import { FeatureCard } from '@/components/feature-card'
 import { InfoBanner } from '@/components/info-banner'
 import { MobileRatingPicker } from '@/components/mobile-rating-picker'
+import { ReviewCard } from '@/components/review-card'
 import { ScreenShell } from '@/components/screen-shell'
 import { TextField } from '@/components/text-field'
-import { addWantToHear, clearReleaseRating, getReleaseById, likeRelease, rateRelease, removeWantToHear, unlikeRelease } from '@/lib/music-api'
+import { addWantToHear, clearReleaseRating, createReview, getReleaseById, getReleaseReviews, likeRelease, rateRelease, removeWantToHear, toggleReviewLike, unlikeRelease } from '@/lib/music-api'
 import { formatArtistCredits, formatRatingValue, formatReleaseType } from '@/lib/format'
 import { useAuthStore } from '@/store/auth-store'
 import { colors, spacing } from '@/theme/tokens'
@@ -24,6 +25,7 @@ export default function ReleaseDetailScreen() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [listenedDate, setListenedDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [diaryNotes, setDiaryNotes] = useState('')
+  const [reviewContent, setReviewContent] = useState('')
 
   const releaseQuery = useQuery({
     queryKey: ['mobile-release-detail', releaseId],
@@ -35,6 +37,12 @@ export default function ReleaseDetailScreen() {
     queryKey: ['mobile-my-lists', user?.id],
     queryFn: () => getMyLists(user!.id),
     enabled: Boolean(token && user?.id),
+  })
+
+  const reviewsQuery = useQuery({
+    queryKey: ['mobile-release-reviews', releaseId],
+    queryFn: () => getReleaseReviews(releaseId, 8, 0, 'recent'),
+    enabled: Boolean(releaseId),
   })
 
   const rateMutation = useMutation({
@@ -137,6 +145,32 @@ export default function ReleaseDetailScreen() {
     onError: (caught: any) => {
       setActionMessage(null)
       setActionError(caught?.response?.data?.error || 'Unable to log this release right now.')
+    },
+  })
+
+  const createReviewMutation = useMutation({
+    mutationFn: () =>
+      createReview({
+        releaseId,
+        content: reviewContent.trim(),
+      }),
+    onSuccess: async () => {
+      setActionError(null)
+      setActionMessage('Review posted.')
+      setReviewContent('')
+      await queryClient.invalidateQueries({ queryKey: ['mobile-release-reviews', releaseId] })
+      await queryClient.invalidateQueries({ queryKey: ['mobile-release-detail', releaseId] })
+    },
+    onError: (caught: any) => {
+      setActionMessage(null)
+      setActionError(caught?.response?.data?.error || 'Unable to post your review right now.')
+    },
+  })
+
+  const likeReviewMutation = useMutation({
+    mutationFn: (reviewId: string) => toggleReviewLike(reviewId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['mobile-release-reviews', releaseId] })
     },
   })
 
@@ -332,6 +366,48 @@ export default function ReleaseDetailScreen() {
             )}
           </View>
         </View>
+
+        <View style={styles.actionCard}>
+          <Text style={styles.sectionTitle}>Reviews</Text>
+          {!token ? <Text style={styles.helperText}>Sign in on mobile to write and like reviews.</Text> : null}
+          {token ? (
+            <>
+              <TextField
+                label="Write a review"
+                value={reviewContent}
+                onChangeText={setReviewContent}
+                multiline
+                hint="Write whatever you want. Short or long is fine."
+              />
+              <ActionPill
+                label={createReviewMutation.isPending ? 'Posting…' : 'Post review'}
+                disabled={createReviewMutation.isPending || reviewContent.trim().length === 0}
+                onPress={() => {
+                  setActionMessage(null)
+                  setActionError(null)
+                  createReviewMutation.mutate()
+                }}
+              />
+            </>
+          ) : null}
+
+          {reviewsQuery.isLoading ? <Text style={styles.helperText}>Loading reviews…</Text> : null}
+          {reviewsQuery.isError ? <InfoBanner tone="error" text="Unable to load reviews right now." /> : null}
+          <View style={styles.reviewList}>
+            {reviewsQuery.data?.data.length ? (
+              reviewsQuery.data.data.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  liking={likeReviewMutation.isPending}
+                  onToggleLike={token ? (reviewId) => likeReviewMutation.mutate(reviewId) : undefined}
+                />
+              ))
+            ) : (
+              !reviewsQuery.isLoading ? <Text style={styles.helperText}>No reviews yet. Be the first to write one on mobile.</Text> : null
+            )}
+          </View>
+        </View>
       </ScrollView>
     </ScreenShell>
   )
@@ -504,6 +580,9 @@ const styles = StyleSheet.create({
     color: colors.textSoft,
     fontSize: 12,
     fontWeight: '600',
+  },
+  reviewList: {
+    gap: spacing.md,
   },
   trackRow: {
     flexDirection: 'row',

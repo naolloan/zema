@@ -125,6 +125,10 @@ export interface MobileListSummary {
   createdAt: string
   updatedAt: string
   itemsCount: number
+  likesCount?: number
+  isLiked?: boolean
+  user?: AuthUser
+  previewReleases?: MobileReleaseSummary[]
 }
 
 export interface MobileDiaryEntry {
@@ -133,6 +137,47 @@ export interface MobileDiaryEntry {
   notes: string | null
   createdAt?: string
   release: MobileReleaseSummary
+}
+
+export interface MobileReviewComment {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt: string
+  user: AuthUser
+}
+
+export interface MobileReview {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt: string
+  user: AuthUser
+  release: MobileReleaseSummary | null
+  likesCount: number
+  isLiked?: boolean
+  diaryEntryId?: string | null
+  comments: MobileReviewComment[]
+}
+
+export interface MobileListItem {
+  id: string
+  position: number
+  notes: string | null
+  release: MobileReleaseSummary
+}
+
+export interface MobileListComment {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt: string
+  user: AuthUser
+}
+
+export interface MobileListDetail extends MobileListSummary {
+  items: MobileListItem[]
+  comments: MobileListComment[]
 }
 
 export interface MobileChartItem {
