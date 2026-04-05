@@ -218,3 +218,5 @@ git push -u origin feature/profile-polish
 ## Setup guide
 
 For a fuller setup walkthrough, see [SETUP.md](/home/naol/CascadeProjects/music-platform/SETUP.md).
+
+For production planning, deployment order, and hosting recommendations, see [DEPLOYMENT_PLAN.md](/home/naol/CascadeProjects/music-platform/DEPLOYMENT_PLAN.md).
