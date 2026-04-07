@@ -297,20 +297,44 @@ export class SpotifyService {
     if (!this.isConfigured()) return [];
 
     return this.safeRequest('getArtistAlbums', async () => {
-      const payload = await this.request<{ items: SpotifyAlbum[] }>(`/artists/${artistId}/albums`, {
-        include_groups: 'album,single',
-        market: 'US',
-        limit,
-      });
-
       const seen = new Set<string>();
-      const deduped = (payload.items || []).filter((album) => {
-        if (!album?.id || seen.has(album.id)) return false;
-        seen.add(album.id);
-        return true;
-      });
+      const collected: SpotifyAlbum[] = [];
+      const target = Math.max(1, Math.min(limit, 50));
+      const pageSize = Math.min(target, 10);
+      let offset = 0;
 
-      return deduped;
+      while (collected.length < target) {
+        const payload = await this.request<{ items: SpotifyAlbum[] }>(`/artists/${artistId}/albums`, {
+          include_groups: 'album,single',
+          market: 'US',
+          limit: pageSize,
+          offset,
+        });
+
+        const items = payload.items || [];
+        if (!items.length) {
+          break;
+        }
+
+        for (const album of items) {
+          if (!album?.id || seen.has(album.id)) {
+            continue;
+          }
+          seen.add(album.id);
+          collected.push(album);
+          if (collected.length >= target) {
+            break;
+          }
+        }
+
+        if (items.length < pageSize) {
+          break;
+        }
+
+        offset += pageSize;
+      }
+
+      return collected;
     }, []);
   }
 
