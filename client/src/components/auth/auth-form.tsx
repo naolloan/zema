@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
-import { checkUsernameAvailability, getGoogleAuthUrl, loginUser, registerUser, resendVerificationEmail } from '@/lib/auth-api'
+import { checkUsernameAvailability, getGoogleAuthUrl, getSpotifyAuthUrl, loginUser, registerUser, resendVerificationEmail } from '@/lib/auth-api'
 import { useAuthStore } from '@/store/auth-store'
 
 interface AuthFormProps {
@@ -17,6 +17,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter()
   const setSession = useAuthStore((state) => state.setSession)
   const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true'
+  const spotifyEnabled = process.env.NEXT_PUBLIC_SPOTIFY_AUTH_ENABLED === 'true'
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -180,13 +181,25 @@ export function AuthForm({ mode }: AuthFormProps) {
         </p>
       </div>
 
-      {googleEnabled ? (
-        <a
-          href={getGoogleAuthUrl()}
-          className="inline-flex h-12 w-full items-center justify-center rounded-full border border-white/14 bg-white/[0.04] px-6 text-sm font-semibold text-white transition hover:border-white/22 hover:bg-white/[0.08]"
-        >
-          Continue with Google
-        </a>
+      {googleEnabled || spotifyEnabled ? (
+        <div className="grid gap-3">
+          {googleEnabled ? (
+            <a
+              href={getGoogleAuthUrl()}
+              className="inline-flex h-12 w-full items-center justify-center rounded-full border border-white/14 bg-white/[0.04] px-6 text-sm font-semibold text-white transition hover:border-white/22 hover:bg-white/[0.08]"
+            >
+              Continue with Google
+            </a>
+          ) : null}
+          {spotifyEnabled ? (
+            <a
+              href={getSpotifyAuthUrl()}
+              className="inline-flex h-12 w-full items-center justify-center rounded-full border border-[#1db954]/24 bg-[#1db954]/12 px-6 text-sm font-semibold text-[#d8ffe6] transition hover:border-[#1db954]/38 hover:bg-[#1db954]/18"
+            >
+              Continue with Spotify
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="space-y-3">

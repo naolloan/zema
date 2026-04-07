@@ -57,8 +57,27 @@ export interface TrackResponse {
   trackNumber: number | null;
   disambiguation: string | null;
   musicBrainzId: string | null;
+  spotifyId?: string | null;
+  spotifyUrl?: string | null;
   release: ReleaseResponse | null;
   artistCredits: ArtistCreditResponse[];
+  averageRating?: number;
+  ratingCount?: number;
+  counts?: {
+    ratings: number;
+  };
+  ratingBreakdown?: {
+    average: number;
+    total: number;
+    histogram: Array<{
+      value: number;
+      count: number;
+    }>;
+  };
+  userRating?: {
+    id: string;
+    value: number;
+  } | null;
 }
 
 export interface ArtistCreditResponse {
@@ -100,6 +119,14 @@ export interface RatingResponse {
   createdAt: Date;
   user: UserResponse;
   release: ReleaseResponse;
+}
+
+export interface TrackRatingResponse {
+  id: string;
+  value: number;
+  createdAt: Date;
+  user: UserResponse;
+  track: TrackResponse;
 }
 
 export interface CreateDiaryEntryInput {

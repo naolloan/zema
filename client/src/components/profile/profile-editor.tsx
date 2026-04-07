@@ -560,7 +560,7 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
       <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4">
         <div>
           <p className="text-sm font-semibold text-white">Change password</p>
-          <p className="mt-1 text-xs text-white/55">Enter your current password, then choose and confirm a new one. If you signed up with Google and never set a password, use the forgot-password flow first.</p>
+          <p className="mt-1 text-xs text-white/55">Enter your current password, then choose and confirm a new one. If you signed up with Google or Spotify and never set a password, use the forgot-password flow first.</p>
         </div>
         <div className="mt-4 space-y-3">
           <PasswordInput
@@ -603,7 +603,7 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
             This permanently deletes your account and related private data. Public content tied to your account may also be removed.
           </p>
           <p className="mt-2 text-xs text-[#ffd9cd]/72">
-            Enter your current password if you use email/password sign in. For Google-created accounts, password can be left blank.
+            Enter your current password if you use email/password sign in. For Google- or Spotify-created accounts, password can be left blank.
           </p>
         </div>
         <div className="mt-4 space-y-3">

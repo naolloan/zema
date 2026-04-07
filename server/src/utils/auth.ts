@@ -21,18 +21,26 @@ export function createOpaqueToken() {
   return randomBytes(32).toString('hex');
 }
 
-export function createGoogleStateToken() {
+function createOAuthStateToken(redirectPath: string) {
   return jwt.sign(
     {
       nonce: randomUUID(),
-      redirectTo: `${getFrontendUrl()}/auth/google/callback`,
+      redirectTo: `${getFrontendUrl()}${redirectPath}`,
     },
     process.env.JWT_SECRET!,
     { expiresIn: '15m' }
   );
 }
 
-export function verifyGoogleStateToken(state: string) {
+export function createGoogleStateToken() {
+  return createOAuthStateToken('/auth/google/callback');
+}
+
+export function createSpotifyStateToken() {
+  return createOAuthStateToken('/auth/spotify/callback');
+}
+
+export function verifyOAuthStateToken(state: string) {
   return jwt.verify(state, process.env.JWT_SECRET!) as { nonce: string; redirectTo?: string };
 }
 

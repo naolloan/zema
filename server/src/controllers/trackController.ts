@@ -2,9 +2,79 @@ import { Request, Response, NextFunction } from "express";
 import { spotifyService } from "../services/spotifyService";
 import { createError } from "../middleware/errorHandler";
 import { prisma } from "../prisma";
-import { trackInclude, serializeTrack } from "../utils/serializers";
+import { AuthRequest } from "../middleware/auth";
+import { trackInclude, serializeTrack, serializeTrackDetail } from "../utils/serializers";
+
+const TRACK_RATING_VALUES = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
 class TrackController {
+  rateTrack = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as AuthRequest).user?.id;
+      const { id } = req.params;
+      const value = Number(req.body?.value);
+
+      if (!userId) {
+        return next(createError("Access token required", 401));
+      }
+
+      if (!TRACK_RATING_VALUES.includes(value)) {
+        return next(createError("Track ratings must be between 0.5 and 5 in half-step increments", 400));
+      }
+
+      const track = await this.findTrackRecord(id);
+      if (!track) {
+        return next(createError("Track not found", 404));
+      }
+
+      const rating = await prisma.trackRating.upsert({
+        where: {
+          userId_trackId: {
+            userId,
+            trackId: track.id,
+          },
+        },
+        update: { value },
+        create: {
+          userId,
+          trackId: track.id,
+          value,
+        },
+      });
+
+      res.json({ success: true, data: rating });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  removeTrackRating = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as AuthRequest).user?.id;
+      const { id } = req.params;
+
+      if (!userId) {
+        return next(createError("Access token required", 401));
+      }
+
+      const track = await this.findTrackRecord(id);
+      if (!track) {
+        return next(createError("Track not found", 404));
+      }
+
+      await prisma.trackRating.deleteMany({
+        where: {
+          userId,
+          trackId: track.id,
+        },
+      });
+
+      res.json({ success: true, message: "Track rating removed" });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   searchTracks = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { q: query, limit = "10" } = req.query;
@@ -51,18 +121,9 @@ class TrackController {
   getTrackById = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
+      const userId = (req as AuthRequest).user?.id;
 
-      let track = await prisma.track.findUnique({
-        where: { id },
-        include: trackInclude,
-      });
-
-      if (!track) {
-        track = await prisma.track.findFirst({
-          where: { spotifyId: id },
-          include: trackInclude,
-        });
-      }
+      let track = await this.findTrackRecord(id, trackInclude);
 
       if (!track && spotifyService.isConfigured()) {
         const spotifyTrack = await spotifyService.getTrackById(id);
@@ -75,11 +136,84 @@ class TrackController {
         return next(createError("Track not found", 404));
       }
 
-      res.json({ success: true, data: serializeTrack(track) });
+      const detail = await this.buildTrackDetail(track.id, userId);
+
+      res.json({ success: true, data: serializeTrackDetail(detail) });
     } catch (error) {
       next(error);
     }
   };
+
+  private async buildTrackDetail(trackId: string, userId?: string) {
+    const track = await prisma.track.findUnique({
+      where: { id: trackId },
+      include: trackInclude,
+    });
+
+    if (!track) {
+      throw createError("Track not found", 404);
+    }
+
+    const [aggregate, ratings, userRating] = await Promise.all([
+      prisma.trackRating.aggregate({
+        where: { trackId },
+        _avg: { value: true },
+        _count: { _all: true },
+      }),
+      prisma.trackRating.findMany({
+        where: { trackId },
+        select: { value: true },
+      }),
+      userId
+        ? prisma.trackRating.findUnique({
+            where: {
+              userId_trackId: {
+                userId,
+                trackId,
+              },
+            },
+            select: { id: true, value: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const histogram = TRACK_RATING_VALUES.map((bucketValue) => ({
+      value: bucketValue,
+      count: ratings.filter((rating) => rating.value === bucketValue).length,
+    }));
+
+    return {
+      ...track,
+      averageRating: aggregate._avg.value ?? 0,
+      ratingCount: aggregate._count._all ?? 0,
+      counts: {
+        ratings: aggregate._count._all ?? 0,
+      },
+      ratingBreakdown: {
+        average: aggregate._avg.value ?? 0,
+        total: aggregate._count._all ?? 0,
+        histogram,
+      },
+      userRating,
+    };
+  }
+
+  private async findTrackRecord(id: string, include: any = undefined) {
+    const args = include ? { include } : {};
+    let track = await prisma.track.findUnique({
+      where: { id },
+      ...args,
+    } as any);
+
+    if (!track) {
+      track = await prisma.track.findFirst({
+        where: { spotifyId: id },
+        ...args,
+      } as any);
+    }
+
+    return track;
+  }
 
   private async findOrCreateSpotifyArtist(spotifyArtist: { id: string; name: string }) {
     let artist = await prisma.artist.findFirst({ where: { spotifyId: spotifyArtist.id } });

@@ -23,6 +23,8 @@ router.delete('/delete-account', authenticateToken, authController.deleteAccount
 // Google OAuth
 router.get('/google/start', authController.startGoogleAuth);
 router.get('/google/callback', authController.handleGoogleCallback);
+router.get('/spotify/start', authController.startSpotifyAuth);
+router.get('/spotify/callback', authController.handleSpotifyCallback);
 
 // Refresh token
 router.post('/refresh', authController.refreshToken);

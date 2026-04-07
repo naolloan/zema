@@ -1,4 +1,5 @@
 import type { Track } from '@/types'
+import Link from 'next/link'
 import { formatDuration } from '@/lib/utils'
 import { ArtistCreditLine } from './artist-credit-line'
 
@@ -22,7 +23,9 @@ export function TrackList({ tracks }: TrackListProps) {
             {track.trackNumber || index + 1}
           </div>
           <div>
-            <p className="font-medium text-white">{track.title}</p>
+            <Link href={`/tracks/${track.id}`} className="font-medium text-white transition hover:text-[#ffe082]">
+              {track.title}
+            </Link>
             <ArtistCreditLine credits={track.artistCredits} className="mt-1 block text-xs text-white/56" />
           </div>
           <div className="text-sm text-white/48">{track.duration ? formatDuration(track.duration) : '--:--'}</div>

@@ -8,6 +8,7 @@ import type {
   ReleaseLikeEntry,
   ReleaseLogEntry,
   Release,
+  Track,
   Review,
   SearchResult,
   List,
@@ -387,6 +388,14 @@ export async function getArtist(id: string): Promise<ArtistDetail | null> {
 export async function getRelease(id: string): Promise<Release | null> {
   try {
     return await fetchJson<Release>(`/releases/${id}`)
+  } catch {
+    return null
+  }
+}
+
+export async function getTrack(id: string): Promise<Track | null> {
+  try {
+    return await fetchJson<Track>(`/tracks/${id}`)
   } catch {
     return null
   }

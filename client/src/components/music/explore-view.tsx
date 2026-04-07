@@ -236,13 +236,20 @@ export function ExploreView() {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {musicSearchResult.tracks.length ? musicSearchResult.tracks.map((track) => (
               <div key={track.id} className="rounded-2xl border border-white/10 bg-[#101720]/88 p-4">
-                <p className="font-medium text-white">{track.title}</p>
+                <Link href={`/tracks/${track.id}`} className="font-medium text-white transition hover:text-[#ffe082]">
+                  {track.title}
+                </Link>
                 <ArtistCreditLine credits={track.artistCredits} className="mt-1 block text-xs text-white/62" />
-                {track.release ? (
-                  <Link href={`/releases/${track.release.id}`} className="mt-3 inline-flex text-sm text-[#f4d35e] transition hover:text-[#ffe082]">
-                    From {track.release.title}
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                  <Link href={`/tracks/${track.id}`} className="inline-flex text-[#8ecae6] transition hover:text-[#d0effa]">
+                    Open track page
                   </Link>
-                ) : null}
+                  {track.release ? (
+                    <Link href={`/releases/${track.release.id}`} className="inline-flex text-[#f4d35e] transition hover:text-[#ffe082]">
+                      From {track.release.title}
+                    </Link>
+                  ) : null}
+                </div>
               </div>
             )) : <p className="text-sm text-white/60">No track matches yet.</p>}
           </div>

@@ -6,6 +6,10 @@ function releaseSpotifyUrl(spotifyId: string | null | undefined) {
   return spotifyId ? `https://open.spotify.com/album/${spotifyId}` : null;
 }
 
+function trackSpotifyUrl(spotifyId: string | null | undefined) {
+  return spotifyId ? `https://open.spotify.com/track/${spotifyId}` : null;
+}
+
 export const artistSummarySelect = {
   id: true,
   name: true,
@@ -225,6 +229,8 @@ export function serializeTrack(track: any) {
     trackNumber: track.trackNumber ?? null,
     disambiguation: track.disambiguation ?? null,
     musicBrainzId: track.musicBrainzId ?? null,
+    spotifyId: track.spotifyId ?? null,
+    spotifyUrl: trackSpotifyUrl(track.spotifyId),
     createdAt: track.createdAt,
     updatedAt: track.updatedAt,
     release: track.release ? serializeReleaseSummary(track.release) : null,
@@ -232,6 +238,23 @@ export function serializeTrack(track: any) {
       ...credit,
       artist: serializeArtistSummary(credit.artist),
     })),
+  };
+}
+
+export function serializeTrackDetail(track: any) {
+  if (!track) return track;
+
+  return {
+    ...serializeTrack(track),
+    averageRating: track.averageRating ?? 0,
+    ratingCount: track.ratingCount ?? 0,
+    counts: track.counts
+      ? {
+          ratings: track.counts.ratings ?? 0,
+        }
+      : undefined,
+    ratingBreakdown: track.ratingBreakdown ?? undefined,
+    userRating: track.userRating ?? null,
   };
 }
 

@@ -78,6 +78,15 @@ export interface ReleaseRatingBreakdown {
   }>
 }
 
+export interface TrackRatingBreakdown {
+  average: number
+  total: number
+  histogram: Array<{
+    value: number
+    count: number
+  }>
+}
+
 export interface UserRatingSummary {
   id: string
   value: number
@@ -116,8 +125,17 @@ export interface Track {
   trackNumber: number | null
   disambiguation: string | null
   musicBrainzId: string | null
+  spotifyId?: string | null
+  spotifyUrl?: string | null
   createdAt?: string
   updatedAt?: string
+  averageRating?: number
+  ratingCount?: number
+  counts?: {
+    ratings: number
+  }
+  ratingBreakdown?: TrackRatingBreakdown
+  userRating?: UserRatingSummary | null
   release: Release | null
   artistCredits: ArtistCredit[]
 }

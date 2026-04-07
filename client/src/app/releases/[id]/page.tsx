@@ -369,7 +369,8 @@ export default function ReleasePage() {
               title="Open logs"
             >
               <Radio className="h-4 w-4 text-[#48c774]" />
-              {formatCompactCount(release.counts?.logs || 0)}
+              <span>{formatCompactCount(release.counts?.logs || 0)}</span>
+              <span className="text-white/48">logs</span>
             </button>
             <button
               type="button"
@@ -378,7 +379,8 @@ export default function ReleasePage() {
               title="Open lists containing this release"
             >
               <LibraryBig className="h-4 w-4 text-[#7cc6ff]" />
-              {formatCompactCount(release.counts?.lists || 0)}
+              <span>{formatCompactCount(release.counts?.lists || 0)}</span>
+              <span className="text-white/48">lists</span>
             </button>
             <button
               type="button"
@@ -387,7 +389,8 @@ export default function ReleasePage() {
               title="Open likes"
             >
               <Heart className="h-4 w-4 fill-current text-[#ff7b54]" />
-              {formatCompactCount(release.counts?.likes || 0)}
+              <span>{formatCompactCount(release.counts?.likes || 0)}</span>
+              <span className="text-white/48">likes</span>
             </button>
             {release.ranking ? (
               getRankHref() ? (
@@ -397,12 +400,14 @@ export default function ReleasePage() {
                   title={`Open ${release.ranking.type.toLowerCase()} Top 250`}
                 >
                   <Crown className="h-4 w-4 text-[#f4d35e]" />
-                  #{release.ranking.rank}
+                  <span>#{release.ranking.rank}</span>
+                  <span className="text-white/48">rank</span>
                 </Link>
               ) : (
                 <span className="inline-flex items-center gap-2 rounded-full px-3 py-2">
                   <Crown className="h-4 w-4 text-[#f4d35e]" />
-                  #{release.ranking.rank}
+                  <span>#{release.ranking.rank}</span>
+                  <span className="text-white/48">rank</span>
                 </span>
               )
             ) : null}

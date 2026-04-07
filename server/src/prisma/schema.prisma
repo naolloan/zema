@@ -13,6 +13,7 @@ model User {
   username          String             @unique
   password          String
   googleId          String?            @unique
+  spotifyAccountId  String?            @unique
   emailVerifiedAt   DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -24,6 +25,7 @@ model User {
   authTokens        AuthToken[]
   reviews           Review[]
   ratings           Rating[]
+  trackRatings      TrackRating[]
   diaryEntries      DiaryEntry[]
   favorites         Favorite[]
   favoriteArtists   FavoriteArtist[]
@@ -155,6 +157,7 @@ model Track {
   releaseId      String?
   release        Release?      @relation(fields: [releaseId], references: [id], onDelete: Cascade)
   artistCredits  ArtistCredit[]
+  ratings        TrackRating[]
 
   @@map("tracks")
 }
@@ -217,6 +220,20 @@ model Rating {
 
   @@unique([userId, releaseId])
   @@map("ratings")
+}
+
+model TrackRating {
+  id        String   @id @default(cuid())
+  value     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+  @@map("track_ratings")
 }
 
 model Favorite {

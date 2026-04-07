@@ -106,6 +106,10 @@ export function getGoogleAuthUrl() {
   return `${API_ORIGIN}/api/auth/google/start`
 }
 
+export function getSpotifyAuthUrl() {
+  return `${API_ORIGIN}/api/auth/spotify/start`
+}
+
 export async function logoutUser(): Promise<void> {
   await api.post('/auth/logout')
 }
@@ -242,6 +246,15 @@ export async function rateRelease(releaseId: string, value: number): Promise<Rat
 
 export async function removeReleaseRating(releaseId: string): Promise<void> {
   await api.delete(`/releases/${releaseId}/rate`)
+}
+
+export async function rateTrack(trackId: string, value: number): Promise<{ id: string; value: number }> {
+  const response = await api.post(`/tracks/${trackId}/rate`, { value })
+  return response.data.data as { id: string; value: number }
+}
+
+export async function removeTrackRating(trackId: string): Promise<void> {
+  await api.delete(`/tracks/${trackId}/rate`)
 }
 
 export async function addReleaseLike(releaseId: string): Promise<void> {

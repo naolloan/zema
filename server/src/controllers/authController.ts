@@ -11,12 +11,13 @@ import { prisma } from '../prisma';
 import { sendTransactionalEmail } from '../services/emailService';
 import {
   createGoogleStateToken,
+  createSpotifyStateToken,
   createOpaqueToken,
   getFrontendUrl,
   hashOpaqueToken,
   serializeSessionUser,
   signSessionToken,
-  verifyGoogleStateToken,
+  verifyOAuthStateToken,
 } from '../utils/auth';
 import { AuthRequest } from '../middleware/auth';
 
@@ -51,6 +52,8 @@ class AuthController {
     this.deleteAccount = this.deleteAccount.bind(this);
     this.startGoogleAuth = this.startGoogleAuth.bind(this);
     this.handleGoogleCallback = this.handleGoogleCallback.bind(this);
+    this.startSpotifyAuth = this.startSpotifyAuth.bind(this);
+    this.handleSpotifyCallback = this.handleSpotifyCallback.bind(this);
   }
 
   async register(req: Request, res: Response, next: NextFunction) {
@@ -469,6 +472,7 @@ class AuthController {
           id: true,
           password: true,
           googleId: true,
+          spotifyAccountId: true,
           avatarUrl: true,
         },
       });
@@ -477,7 +481,7 @@ class AuthController {
         return next(createError('User not found', 404));
       }
 
-      if (!user.googleId) {
+      if (!user.googleId && !user.spotifyAccountId) {
         if (!currentPassword) {
           return next(createError('Current password is required to delete this account', 400));
         }
@@ -551,7 +555,7 @@ class AuthController {
         return;
       }
 
-      verifyGoogleStateToken(state);
+      verifyOAuthStateToken(state);
 
       const tokenResponse = await axios.post(
         'https://oauth2.googleapis.com/token',
@@ -640,6 +644,140 @@ class AuthController {
         stack: error instanceof Error ? error.stack : undefined,
       });
       frontendCallbackUrl.searchParams.set('error', 'Google sign-in could not be completed.');
+      res.redirect(frontendCallbackUrl.toString());
+    }
+  }
+
+  async startSpotifyAuth(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET || !process.env.SPOTIFY_OAUTH_REDIRECT_URI) {
+        return next(createError('Spotify sign-in is not configured on this server yet', 500));
+      }
+
+      const url = new URL(process.env.SPOTIFY_AUTHORIZE_URL || 'https://accounts.spotify.com/authorize');
+      url.searchParams.set('client_id', process.env.SPOTIFY_CLIENT_ID);
+      url.searchParams.set('redirect_uri', process.env.SPOTIFY_OAUTH_REDIRECT_URI);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('scope', process.env.SPOTIFY_OAUTH_SCOPES || 'user-read-email user-read-private');
+      url.searchParams.set('show_dialog', 'true');
+      url.searchParams.set('state', createSpotifyStateToken());
+
+      res.redirect(url.toString());
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async handleSpotifyCallback(req: Request, res: Response, next: NextFunction) {
+    const frontendCallbackUrl = new URL(`${getFrontendUrl()}/auth/spotify/callback`);
+
+    try {
+      const providerError = String(req.query.error || '').trim();
+      if (providerError) {
+        frontendCallbackUrl.searchParams.set('error', 'Spotify sign-in was cancelled.');
+        res.redirect(frontendCallbackUrl.toString());
+        return;
+      }
+
+      const code = String(req.query.code || '').trim();
+      const state = String(req.query.state || '').trim();
+      if (!code || !state) {
+        frontendCallbackUrl.searchParams.set('error', 'Spotify sign-in did not return the required data.');
+        res.redirect(frontendCallbackUrl.toString());
+        return;
+      }
+
+      verifyOAuthStateToken(state);
+
+      const tokenResponse = await axios.post(
+        process.env.SPOTIFY_OAUTH_TOKEN_URL || 'https://accounts.spotify.com/api/token',
+        new URLSearchParams({
+          code,
+          redirect_uri: process.env.SPOTIFY_OAUTH_REDIRECT_URI!,
+          grant_type: 'authorization_code',
+        }).toString(),
+        {
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${process.env.SPOTIFY_CLIENT_ID!}:${process.env.SPOTIFY_CLIENT_SECRET!}`).toString('base64')}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          timeout: 15000,
+        }
+      );
+
+      const accessToken = tokenResponse.data?.access_token;
+      if (!accessToken) {
+        throw new Error('Spotify did not return an access token');
+      }
+
+      const profileResponse = await axios.get('https://api.spotify.com/v1/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 15000,
+      });
+
+      const spotifyProfile = profileResponse.data as {
+        id?: string;
+        email?: string;
+        display_name?: string;
+        images?: Array<{ url?: string }>;
+      };
+
+      if (!spotifyProfile.id || !spotifyProfile.email) {
+        frontendCallbackUrl.searchParams.set('error', 'Spotify account email is unavailable.');
+        res.redirect(frontendCallbackUrl.toString());
+        return;
+      }
+
+      const normalizedEmail = spotifyProfile.email.trim().toLowerCase();
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { spotifyAccountId: spotifyProfile.id },
+            { email: normalizedEmail },
+          ],
+        },
+        select: USER_SESSION_SELECT,
+      });
+
+      const avatarUrl = spotifyProfile.images?.[0]?.url || undefined;
+
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            spotifyAccountId: spotifyProfile.id,
+            emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+            displayName: user.displayName || spotifyProfile.display_name || undefined,
+            avatarUrl: user.avatarUrl || avatarUrl,
+          },
+          select: USER_SESSION_SELECT,
+        });
+      } else {
+        const username = await this.generateUniqueUsername(spotifyProfile.display_name || normalizedEmail.split('@')[0]);
+        const randomPassword = await bcrypt.hash(createOpaqueToken(), 12);
+        user = await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            username,
+            password: randomPassword,
+            spotifyAccountId: spotifyProfile.id,
+            emailVerifiedAt: new Date(),
+            displayName: spotifyProfile.display_name || username,
+            avatarUrl,
+          },
+          select: USER_SESSION_SELECT,
+        });
+      }
+
+      const sessionPayload = Buffer.from(JSON.stringify(this.buildSessionResponse(user))).toString('base64url');
+      frontendCallbackUrl.searchParams.set('session', sessionPayload);
+      res.redirect(frontendCallbackUrl.toString());
+    } catch (error) {
+      console.error('[spotify-auth-callback-failed]', {
+        message: error instanceof Error ? error.message : 'Unknown Spotify auth error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      frontendCallbackUrl.searchParams.set('error', 'Spotify sign-in could not be completed.');
       res.redirect(frontendCallbackUrl.toString());
     }
   }
