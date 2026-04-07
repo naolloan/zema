@@ -14,6 +14,7 @@ import type {
   Rating,
   Review,
   ReviewComment,
+  TrackReview,
   User,
   UserSearchResult,
   WantToHearItem,
@@ -255,6 +256,20 @@ export async function rateTrack(trackId: string, value: number): Promise<{ id: s
 
 export async function removeTrackRating(trackId: string): Promise<void> {
   await api.delete(`/tracks/${trackId}/rate`)
+}
+
+export async function createTrackReview(trackId: string, content: string): Promise<TrackReview> {
+  const response = await api.post(`/tracks/${trackId}/reviews`, { content })
+  return response.data.data as TrackReview
+}
+
+export async function updateTrackReview(reviewId: string, content: string): Promise<TrackReview> {
+  const response = await api.patch(`/tracks/reviews/${reviewId}`, { content })
+  return response.data.data as TrackReview
+}
+
+export async function deleteTrackReview(reviewId: string): Promise<void> {
+  await api.delete(`/tracks/reviews/${reviewId}`)
 }
 
 export async function addReleaseLike(releaseId: string): Promise<void> {

@@ -129,6 +129,15 @@ export interface TrackRatingResponse {
   track: TrackResponse;
 }
 
+export interface TrackReviewResponse {
+  id: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  user: UserResponse;
+  track: TrackResponse | null;
+}
+
 export interface CreateDiaryEntryInput {
   releaseId: string;
   listenedAt: Date;

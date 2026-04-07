@@ -3,11 +3,174 @@ import { spotifyService } from "../services/spotifyService";
 import { createError } from "../middleware/errorHandler";
 import { prisma } from "../prisma";
 import { AuthRequest } from "../middleware/auth";
-import { trackInclude, serializeTrack, serializeTrackDetail } from "../utils/serializers";
+import { trackInclude, trackReviewInclude, serializeTrack, serializeTrackDetail, serializeTrackReview } from "../utils/serializers";
 
 const TRACK_RATING_VALUES = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 
 class TrackController {
+  getTrackReviews = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { limit = "12", offset = "0" } = req.query;
+
+      const track = await this.findTrackRecord(id);
+      if (!track) {
+        return next(createError("Track not found", 404));
+      }
+
+      const parsedLimit = Math.min(parseInt(limit as string, 10) || 12, 50);
+      const parsedOffset = parseInt(offset as string, 10) || 0;
+
+      const [reviews, total] = await Promise.all([
+        prisma.trackReview.findMany({
+          where: { trackId: track.id },
+          include: trackReviewInclude,
+          orderBy: { createdAt: "desc" },
+          take: parsedLimit,
+          skip: parsedOffset,
+        }),
+        prisma.trackReview.count({
+          where: { trackId: track.id },
+        }),
+      ]);
+
+      res.json({
+        success: true,
+        data: reviews.map(serializeTrackReview),
+        pagination: {
+          page: Math.floor(parsedOffset / parsedLimit) + 1,
+          limit: parsedLimit,
+          total,
+          totalPages: Math.ceil(total / parsedLimit),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createTrackReview = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as AuthRequest).user?.id;
+      const { id } = req.params;
+      const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
+
+      if (!userId) {
+        return next(createError("Access token required", 401));
+      }
+
+      if (!content) {
+        return next(createError("Content is required", 400));
+      }
+
+      const track = await this.findTrackRecord(id);
+      if (!track) {
+        return next(createError("Track not found", 404));
+      }
+
+      const existingReview = await prisma.trackReview.findUnique({
+        where: {
+          userId_trackId: {
+            userId,
+            trackId: track.id,
+          },
+        },
+      });
+
+      if (existingReview) {
+        return next(createError("You have already reviewed this track", 409));
+      }
+
+      const review = await prisma.trackReview.create({
+        data: {
+          userId,
+          trackId: track.id,
+          content,
+        },
+        include: trackReviewInclude,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: serializeTrackReview(review),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateTrackReview = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { reviewId } = req.params;
+      const userId = (req as AuthRequest).user?.id;
+      const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
+
+      if (!userId) {
+        return next(createError("Access token required", 401));
+      }
+
+      if (!content) {
+        return next(createError("Content is required", 400));
+      }
+
+      const review = await prisma.trackReview.findUnique({
+        where: { id: reviewId },
+      });
+
+      if (!review) {
+        return next(createError("Track review not found", 404));
+      }
+
+      if (review.userId !== userId) {
+        return next(createError("You can only update your own track reviews", 403));
+      }
+
+      const updated = await prisma.trackReview.update({
+        where: { id: reviewId },
+        data: { content },
+        include: trackReviewInclude,
+      });
+
+      res.json({
+        success: true,
+        data: serializeTrackReview(updated),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteTrackReview = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { reviewId } = req.params;
+      const userId = (req as AuthRequest).user?.id;
+
+      if (!userId) {
+        return next(createError("Access token required", 401));
+      }
+
+      const review = await prisma.trackReview.findUnique({
+        where: { id: reviewId },
+      });
+
+      if (!review) {
+        return next(createError("Track review not found", 404));
+      }
+
+      if (review.userId !== userId) {
+        return next(createError("You can only delete your own track reviews", 403));
+      }
+
+      await prisma.trackReview.delete({
+        where: { id: reviewId },
+      });
+
+      res.json({ success: true, message: "Track review deleted successfully" });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   rateTrack = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as AuthRequest).user?.id;

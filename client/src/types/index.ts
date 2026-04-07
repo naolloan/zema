@@ -153,6 +153,15 @@ export interface Review {
   comments: ReviewComment[]
 }
 
+export interface TrackReview {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt: string
+  user: User
+  track: Track | null
+}
+
 export interface Rating {
   id: string
   value: number

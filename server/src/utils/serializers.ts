@@ -146,6 +146,20 @@ export const reviewInclude: any = {
   },
 };
 
+export const trackReviewInclude: any = {
+  user: {
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+    },
+  },
+  track: {
+    include: trackInclude,
+  },
+};
+
 export function serializeUserSummary(user: any) {
   if (!user) return user;
 
@@ -315,5 +329,18 @@ export function serializeReview(review: any, isLiked = false) {
     isLiked,
     diaryEntryId: review.diaryEntryId ?? null,
     comments: (review.comments ?? []).map(serializeReviewComment),
+  };
+}
+
+export function serializeTrackReview(review: any) {
+  if (!review) return review;
+
+  return {
+    id: review.id,
+    content: review.content,
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
+    user: serializeUserSummary(review.user),
+    track: review.track ? serializeTrack(review.track) : null,
   };
 }

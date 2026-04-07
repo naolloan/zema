@@ -24,6 +24,7 @@ model User {
   commentPermission CommentPermission  @default(FOLLOWING)
   authTokens        AuthToken[]
   reviews           Review[]
+  trackReviews      TrackReview[]
   ratings           Rating[]
   trackRatings      TrackRating[]
   diaryEntries      DiaryEntry[]
@@ -157,6 +158,7 @@ model Track {
   releaseId      String?
   release        Release?      @relation(fields: [releaseId], references: [id], onDelete: Cascade)
   artistCredits  ArtistCredit[]
+  trackReviews   TrackReview[]
   ratings        TrackRating[]
 
   @@map("tracks")
@@ -206,6 +208,20 @@ model Review {
 
   @@unique([userId, releaseId])
   @@map("reviews")
+}
+
+model TrackReview {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId])
+  @@map("track_reviews")
 }
 
 model Rating {

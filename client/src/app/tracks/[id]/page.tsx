@@ -1,101 +1,54 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Music2, Star } from 'lucide-react'
+import { ArrowLeft, Clock3, ExternalLink, Hash, Music2, Send } from 'lucide-react'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { ArtistCreditLine } from '@/components/music/artist-credit-line'
 import { CoverArt } from '@/components/music/cover-art'
-import { RatingPicker } from '@/components/music/rating-picker'
-import { getTrack } from '@/lib/music-api'
-import { removeTrackRating, rateTrack } from '@/lib/auth-api'
-import { formatDuration, formatRatingValue } from '@/lib/utils'
-import type { Track } from '@/types'
+import { TrackReviewCard } from '@/components/music/track-review-card'
+import { createTrackReview, deleteTrackReview, updateTrackReview } from '@/lib/auth-api'
+import { getTrack, getTrackReviews } from '@/lib/music-api'
+import { formatDuration } from '@/lib/utils'
+import type { Track, TrackReview } from '@/types'
 import { useAuthStore } from '@/store/auth-store'
-
-function renderStarRow(average: number) {
-  const fullStars = Math.round(average)
-  return Array.from({ length: 5 }, (_, index) => (
-    <Star
-      key={index}
-      className={index < fullStars ? 'h-4 w-4 fill-current text-[#48c774]' : 'h-4 w-4 text-white/20'}
-    />
-  ))
-}
-
-function applyOptimisticTrackRatingChange(current: Track, nextRating: { id: string; value: number } | null): Track {
-  const previousValue = current.userRating?.value ?? null
-  const upcomingValue = nextRating?.value ?? null
-
-  if (previousValue === upcomingValue) {
-    return current
-  }
-
-  const currentBreakdown = current.ratingBreakdown
-  if (!currentBreakdown) {
-    return {
-      ...current,
-      userRating: nextRating,
-    }
-  }
-
-  const histogram = currentBreakdown.histogram.map((bucket) => ({ ...bucket }))
-  const previousIndex = previousValue === null ? -1 : histogram.findIndex((bucket) => bucket.value === previousValue)
-  const nextIndex = upcomingValue === null ? -1 : histogram.findIndex((bucket) => bucket.value === upcomingValue)
-
-  if (previousIndex >= 0) {
-    histogram[previousIndex] = { ...histogram[previousIndex], count: Math.max(0, histogram[previousIndex].count - 1) }
-  }
-
-  if (nextIndex >= 0) {
-    histogram[nextIndex] = { ...histogram[nextIndex], count: histogram[nextIndex].count + 1 }
-  }
-
-  const currentTotal = currentBreakdown.total || current.ratingCount || 0
-  const currentAverage = currentBreakdown.average || current.averageRating || 0
-  const nextTotal = currentTotal + (upcomingValue !== null ? 1 : 0) - (previousValue !== null ? 1 : 0)
-  const currentSum = currentAverage * currentTotal
-  const nextSum = currentSum + (upcomingValue ?? 0) - (previousValue ?? 0)
-  const nextAverage = nextTotal > 0 ? nextSum / nextTotal : 0
-
-  return {
-    ...current,
-    averageRating: nextAverage,
-    ratingCount: nextTotal,
-    counts: {
-      ratings: nextTotal,
-    },
-    ratingBreakdown: {
-      ...currentBreakdown,
-      average: nextAverage,
-      total: nextTotal,
-      histogram,
-    },
-    userRating: nextRating,
-  }
-}
 
 export default function TrackPage() {
   const params = useParams<{ id: string }>()
   const user = useAuthStore((state) => state.user)
   const [track, setTrack] = useState<Track | null>(null)
+  const [reviews, setReviews] = useState<TrackReview[]>([])
   const [loading, setLoading] = useState(true)
-  const [ratingLoading, setRatingLoading] = useState<number | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reviewDraft, setReviewDraft] = useState('')
 
   useEffect(() => {
-    async function loadTrack() {
+    async function loadTrackPage() {
       if (!params?.id) return
       setLoading(true)
-      const data = await getTrack(params.id)
-      setTrack(data)
+      const [trackData, reviewData] = await Promise.all([
+        getTrack(params.id),
+        getTrackReviews(params.id, 24, 0),
+      ])
+      setTrack(trackData)
+      setReviews(reviewData?.data || [])
       setLoading(false)
     }
 
-    loadTrack()
+    loadTrackPage()
   }, [params?.id])
+
+  const currentUserReview = useMemo(
+    () => (user ? reviews.find((review) => review.user.id === user.id) ?? null : null),
+    [reviews, user],
+  )
+
+  useEffect(() => {
+    setReviewDraft(currentUserReview?.content || '')
+  }, [currentUserReview?.content])
 
   if (loading) {
     return (
@@ -108,8 +61,8 @@ export default function TrackPage() {
   if (!track) {
     return (
       <main className="mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center gap-4 px-4 py-10 text-center sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold text-white">Track not found</h1>
-        <p className="max-w-xl text-white/60">This track could not be loaded yet. It may not be in the catalog, or it may need to be fetched from Spotify first.</p>
+        <h1 className="text-3xl font-semibold text-white">Song not found</h1>
+        <p className="max-w-xl text-white/60">This song could not be loaded yet. It may not be in the catalog, or it may need to be fetched from Spotify first.</p>
         <Link href="/explore" className="rounded-full bg-[#f4d35e] px-5 py-3 text-sm font-semibold text-[#111318]">
           Back to explore
         </Link>
@@ -119,55 +72,50 @@ export default function TrackPage() {
 
   const currentTrack = track
 
-  async function handleRate(value: number) {
-    setError(null)
-    setMessage(null)
-    setRatingLoading(value)
-
-    const previousTrack = currentTrack
-    const optimisticTrack = applyOptimisticTrackRatingChange(currentTrack, {
-      id: currentTrack.userRating?.id || 'local',
-      value,
-    })
-    setTrack(optimisticTrack)
-
-    try {
-      const savedRating = await rateTrack(currentTrack.id, value)
-      setTrack((current) => (current ? { ...current, userRating: savedRating } : current))
-      setMessage(`Saved your ${formatRatingValue(value)}-star track rating.`)
-    } catch (caught: any) {
-      setTrack(previousTrack)
-      setError(caught?.response?.data?.error || 'Unable to save your track rating right now.')
-    } finally {
-      setRatingLoading(null)
-    }
-  }
-
-  async function handleClearRating() {
-    if (!currentTrack.userRating) {
+  async function handleSaveReview() {
+    if (!user || !reviewDraft.trim()) {
       return
     }
 
+    setReviewLoading(true)
     setError(null)
     setMessage(null)
-    setRatingLoading(-1)
-
-    const previousTrack = currentTrack
-    setTrack(applyOptimisticTrackRatingChange(currentTrack, null))
 
     try {
-      await removeTrackRating(currentTrack.id)
-      setMessage('Removed your track rating.')
+      const savedReview = currentUserReview
+        ? await updateTrackReview(currentUserReview.id, reviewDraft.trim())
+        : await createTrackReview(currentTrack.id, reviewDraft.trim())
+
+      setReviews((current) => {
+        const withoutOld = current.filter((review) => review.id !== savedReview.id && review.user.id !== savedReview.user.id)
+        return [savedReview, ...withoutOld]
+      })
+      setMessage(currentUserReview ? 'Updated your song review.' : 'Published your song review.')
     } catch (caught: any) {
-      setTrack(previousTrack)
-      setError(caught?.response?.data?.error || 'Unable to clear your track rating right now.')
+      setError(caught?.response?.data?.error || 'Unable to save your song review right now.')
     } finally {
-      setRatingLoading(null)
+      setReviewLoading(false)
     }
   }
 
-  const backdropImage = currentTrack.release?.artworkUrl
-  const totalRatings = currentTrack.ratingBreakdown?.total || currentTrack.ratingCount || 0
+  async function handleDeleteReview(reviewId: string) {
+    setReviewLoading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      await deleteTrackReview(reviewId)
+      setReviews((current) => current.filter((review) => review.id !== reviewId))
+      setReviewDraft('')
+      setMessage('Deleted your song review.')
+    } catch (caught: any) {
+      setError(caught?.response?.data?.error || 'Unable to delete your song review right now.')
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const backdropImage = track.release?.artworkUrl
 
   return (
     <main className="relative overflow-hidden">
@@ -185,7 +133,7 @@ export default function TrackPage() {
           {currentTrack.release ? 'Back to release' : 'Back to explore'}
         </Link>
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+        <div className="mt-8 grid gap-8 lg:grid-cols-[0.88fr_1.12fr] lg:items-start">
           <div>
             <CoverArt
               title={currentTrack.release?.title || currentTrack.title}
@@ -196,12 +144,10 @@ export default function TrackPage() {
 
           <div className="space-y-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8ecae6]">Track Profile</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8ecae6]">Song Profile</p>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">{currentTrack.title}</h1>
               <ArtistCreditLine credits={currentTrack.artistCredits} className="mt-4 block text-base text-white/72" />
               <div className="mt-5 flex flex-wrap items-center gap-3 text-sm font-semibold text-white/62">
-                {currentTrack.trackNumber ? <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5">Track {currentTrack.trackNumber}</span> : null}
-                {currentTrack.duration ? <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5">{formatDuration(currentTrack.duration)}</span> : null}
                 {currentTrack.release ? (
                   <Link href={`/releases/${currentTrack.release.id}`} className="rounded-full border border-[#f4d35e]/18 bg-[#f4d35e]/10 px-3 py-1.5 text-[#ffe082] transition hover:bg-[#f4d35e]/18">
                     From {currentTrack.release.title}
@@ -221,70 +167,96 @@ export default function TrackPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 rounded-[1.75rem] border border-white/10 bg-[#0f141d]/78 p-5 sm:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Track Rating</p>
-                <div className="mt-4 flex items-end gap-3">
-                  <span className="text-5xl font-semibold tracking-tight text-white">{(currentTrack.averageRating || 0).toFixed(1)}</span>
-                  <span className="pb-2 text-sm text-white/52">{totalRatings} ratings</span>
+            <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.18)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#f4d35e]">Song Details</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.35rem] border border-white/8 bg-[#0f141d]/74 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
+                    <Clock3 className="h-4 w-4 text-[#8ecae6]" />
+                    Runtime
+                  </div>
+                <p className="mt-3 text-2xl font-semibold text-white">{currentTrack.duration ? formatDuration(currentTrack.duration) : '--:--'}</p>
                 </div>
-                <div className="mt-3 flex items-center gap-1">{renderStarRow(currentTrack.averageRating || 0)}</div>
+                <div className="rounded-[1.35rem] border border-white/8 bg-[#0f141d]/74 p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
+                    <Hash className="h-4 w-4 text-[#f4d35e]" />
+                    Position
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold text-white">{currentTrack.trackNumber ? `Track ${currentTrack.trackNumber}` : 'Unlisted'}</p>
+                </div>
               </div>
-              <div className="rounded-[1.5rem] border border-white/8 bg-white/[0.03] p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Track Stats</p>
-                <div className="mt-4 grid gap-3 text-sm text-white/72">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-2"><Music2 className="h-4 w-4 text-[#8ecae6]" /> Ratings</span>
-                    <span className="font-semibold text-white">{currentTrack.counts?.ratings || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Release</span>
-                    <span className="font-semibold text-white">{currentTrack.release?.title || 'Standalone track'}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Artists</span>
-                    <span className="font-semibold text-white">{currentTrack.artistCredits.length}</span>
-                  </div>
+              <div className="mt-4 rounded-[1.35rem] border border-white/8 bg-[#0f141d]/74 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
+                  <Music2 className="h-4 w-4 text-[#2a9d8f]" />
+                  Context
                 </div>
+                <p className="mt-3 text-sm leading-7 text-white/72">
+                  {currentTrack.release
+                    ? `${currentTrack.title} lives inside ${currentTrack.release.title}, so this page focuses on the song itself while still linking you back to the full release.`
+                    : `${currentTrack.title} is currently cataloged as a standalone song with no linked release yet.`}
+                </p>
               </div>
             </div>
 
             <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#8ecae6]">Song Reviews</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">What people are saying about this song</h2>
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-white/52">
+                  {reviews.length} review{reviews.length === 1 ? '' : 's'}
+                </div>
+              </div>
+
               {user ? (
-                <RatingPicker
-                  value={currentTrack.userRating?.value ?? null}
-                  loadingValue={ratingLoading}
-                  onRate={handleRate}
-                  onClear={currentTrack.userRating ? handleClearRating : undefined}
-                />
+                <div className="mt-6 rounded-[1.5rem] border border-white/8 bg-[#0f141d]/82 p-4">
+                  <p className="text-sm font-semibold text-white">{currentUserReview ? 'Edit your song review' : 'Write a song review'}</p>
+                  <textarea
+                    value={reviewDraft}
+                    onChange={(event) => setReviewDraft(event.target.value)}
+                    placeholder="Write whatever you want about this song."
+                    className="mt-4 min-h-[140px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/20"
+                  />
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveReview}
+                      disabled={reviewLoading || reviewDraft.trim().length === 0}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#f4d35e] px-5 py-2.5 text-sm font-semibold text-[#111318] transition hover:bg-[#ffe082] disabled:opacity-60"
+                    >
+                      {reviewLoading ? <BrandLoader className="h-4 w-auto" /> : <Send className="h-4 w-4" />}
+                      {currentUserReview ? 'Update review' : 'Publish review'}
+                    </button>
+                    {currentUserReview ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteReview(currentUserReview.id)}
+                        disabled={reviewLoading}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white/72 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-60"
+                      >
+                        Delete review
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               ) : (
-                <p className="text-white/64">Sign in to rate this track and add your listening opinion to the catalog.</p>
+                <p className="mt-6 text-white/64">Sign in to review this song.</p>
               )}
+
               {message ? <p className="mt-4 rounded-2xl border border-[#8ecae6]/30 bg-[#8ecae6]/10 px-4 py-3 text-sm text-[#d7f2ff]">{message}</p> : null}
               {error ? <p className="mt-4 rounded-2xl border border-[#ff7b54]/30 bg-[#ff7b54]/10 px-4 py-3 text-sm text-[#ffd6cc]">{error}</p> : null}
-            </div>
 
-            <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#f4d35e]">Track Ratings</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">How listeners are rating this song</h2>
-                </div>
-              </div>
-              <div className="mt-6 grid gap-3">
-                {(currentTrack.ratingBreakdown?.histogram || []).slice().reverse().map((bucket) => {
-                  const total = currentTrack.ratingBreakdown?.total || 0
-                  const percent = total > 0 ? Math.round((bucket.count / total) * 100) : 0
-                  return (
-                    <div key={bucket.value} className="grid grid-cols-[4rem_1fr_auto] items-center gap-4">
-                      <span className="text-sm font-semibold text-white/72">{formatRatingValue(bucket.value)}</span>
-                      <div className="h-3 overflow-hidden rounded-full bg-white/8" title={`${bucket.count} rating${bucket.count === 1 ? '' : 's'} • ${percent}%`}>
-                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#48c774,#8ecae6)]" style={{ width: `${Math.max(percent, bucket.count ? 4 : 0)}%` }} />
-                      </div>
-                      <span className="text-sm text-white/48">{bucket.count}</span>
-                    </div>
-                  )
-                })}
+              <div className="mt-6 space-y-4">
+                {reviews.length ? (
+                  reviews.map((review) => (
+                    <TrackReviewCard key={review.id} review={review} onDelete={handleDeleteReview} />
+                  ))
+                ) : (
+                  <p className="rounded-[1.5rem] border border-white/8 bg-[#0f141d]/74 px-5 py-6 text-sm text-white/60">
+                    No one has reviewed this song yet. Start the conversation.
+                  </p>
+                )}
               </div>
             </div>
           </div>

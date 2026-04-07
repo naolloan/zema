@@ -9,6 +9,7 @@ import type {
   ReleaseLogEntry,
   Release,
   Track,
+  TrackReview,
   Review,
   SearchResult,
   List,
@@ -396,6 +397,14 @@ export async function getRelease(id: string): Promise<Release | null> {
 export async function getTrack(id: string): Promise<Track | null> {
   try {
     return await fetchJson<Track>(`/tracks/${id}`)
+  } catch {
+    return null
+  }
+}
+
+export async function getTrackReviews(id: string, limit = 12, offset = 0): Promise<PaginatedEnvelope<TrackReview> | null> {
+  try {
+    return await fetchEnvelope<TrackReview>(`/tracks/${id}/reviews?limit=${limit}&offset=${offset}`)
   } catch {
     return null
   }
