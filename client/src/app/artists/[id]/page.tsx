@@ -3,12 +3,19 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, ExternalLink, Library } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Library, SignalHigh, Users } from 'lucide-react'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { BrandMark } from '@/components/brand/brand-logo'
 import { getArtist } from '@/lib/music-api'
 import type { ArtistDetail } from '@/types'
 import { ReleaseCard } from '@/components/music/release-card'
+
+function formatCompactCount(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: value >= 1000 ? 1 : 0,
+  }).format(value)
+}
 
 export default function ArtistPage() {
   const params = useParams<{ id: string }>()
@@ -65,21 +72,39 @@ export default function ArtistPage() {
             <span className="rounded-full bg-white/10 px-3 py-1.5">{artist.type}</span>
             {artist.disambiguation ? <span className="rounded-full bg-white/10 px-3 py-1.5">{artist.disambiguation}</span> : null}
             <span className="rounded-full bg-white/10 px-3 py-1.5">{artist.releaseCount} releases linked</span>
+            {artist.spotifyGenres?.slice(0, 3).map((genre) => (
+              <span key={genre} className="rounded-full border border-[#8ecae6]/20 bg-[#8ecae6]/10 px-3 py-1.5 text-[#d7f2ff]">
+                {genre}
+              </span>
+            ))}
           </div>
           <p className="mt-6 max-w-2xl text-base leading-8 text-white/70">
             {artist.bio || `${artist.name} is now part of the community catalog. Browse linked releases, credits, and ratings below.`}
           </p>
-          {artist.spotifyUrl ? (
-            <a
-              href={artist.spotifyUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#1DB954]/35 bg-[#1DB954]/15 px-4 py-2 text-sm font-semibold text-[#d8ffe8] transition hover:bg-[#1DB954]/22"
-            >
-              Open In Spotify
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          ) : null}
+          <div className="mt-5 flex flex-wrap gap-3">
+            {artist.spotifyUrl ? (
+              <a
+                href={artist.spotifyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-[#1DB954]/35 bg-[#1DB954]/15 px-4 py-2 text-sm font-semibold text-[#d8ffe8] transition hover:bg-[#1DB954]/22"
+              >
+                Open In Spotify
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
+            {artist.wikipediaUrl ? (
+              <a
+                href={artist.wikipediaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white/78 transition hover:bg-white/[0.08] hover:text-white"
+              >
+                Read background
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
+          </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-[1.75rem] bg-[#111318]/72 p-5">
@@ -87,8 +112,21 @@ export default function ArtistPage() {
             <p className="mt-4 text-4xl font-semibold text-white">{artist.releaseCount}</p>
           </div>
           <div className="rounded-[1.75rem] bg-[#111318]/72 p-5">
+            <div className="flex items-center gap-3 text-[#8ecae6]"><SignalHigh className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Popularity</span></div>
+            <p className="mt-4 text-4xl font-semibold text-white">{artist.spotifyPopularity ?? '--'}</p>
+            <p className="mt-2 text-sm text-white/54">Spotify popularity score</p>
+          </div>
+          <div className="rounded-[1.75rem] bg-[#111318]/72 p-5">
+            <div className="flex items-center gap-3 text-[#2a9d8f]"><Users className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Followers</span></div>
+            <p className="mt-4 text-4xl font-semibold text-white">{artist.spotifyFollowers ? formatCompactCount(artist.spotifyFollowers) : '--'}</p>
+            <p className="mt-2 text-sm text-white/54">Spotify listeners following this artist</p>
+          </div>
+          <div className="rounded-[1.75rem] bg-[#111318]/72 p-5">
             <div className="flex items-center gap-3 text-[#8ecae6]"><Library className="h-5 w-5" /><span className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Catalog State</span></div>
-            <p className="mt-4 text-lg font-semibold text-white">Collaborative credits ready</p>
+            <p className="mt-4 text-lg font-semibold text-white">{artist.spotifyGenres?.length ? `${artist.spotifyGenres.length} genre signals synced` : 'Collaborative credits ready'}</p>
+            <p className="mt-2 text-sm text-white/54">
+              {artist.spotifyGenres?.length ? `Top tags: ${artist.spotifyGenres.slice(0, 3).join(', ')}` : 'Spotify and community credits are connected for this artist.'}
+            </p>
           </div>
         </div>
       </section>

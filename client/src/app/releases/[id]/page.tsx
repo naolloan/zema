@@ -467,6 +467,45 @@ export default function ReleasePage() {
               </div>
             </div>
           </div>
+          {release.description || release.label || (release.copyrights && release.copyrights.length > 0) || typeof release.spotifyPopularity === 'number' || release.wikipediaUrl ? (
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[1.5rem] bg-[#111318]/74 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">About This Release</p>
+                  {release.wikipediaUrl ? (
+                    <a
+                      href={release.wikipediaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/72 transition hover:bg-white/[0.08] hover:text-white"
+                    >
+                      Read more
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null}
+                </div>
+                <p className="mt-4 text-sm leading-7 text-white/72">
+                  {release.description || `${release.title} is in the catalog with full community activity, live ratings, and release-level metadata synced from connected music sources.`}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[1.5rem] bg-[#111318]/74 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Label</p>
+                  <p className="mt-3 text-lg font-semibold text-white">{release.label || 'Unlisted'}</p>
+                </div>
+                <div className="rounded-[1.5rem] bg-[#111318]/74 p-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Spotify Popularity</p>
+                  <p className="mt-3 text-lg font-semibold text-white">{typeof release.spotifyPopularity === 'number' ? release.spotifyPopularity : 'Unlisted'}</p>
+                </div>
+                <div className="rounded-[1.5rem] bg-[#111318]/74 p-5 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">Copyrights</p>
+                  <p className="mt-3 text-sm leading-7 text-white/72">
+                    {release.copyrights?.length ? release.copyrights.join(' • ') : 'No copyright notice has been synced yet.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
         </div>
       </section>

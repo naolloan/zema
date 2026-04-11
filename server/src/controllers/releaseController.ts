@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { ReleaseType } from '@prisma/client';
 import { spotifyService } from '../services/spotifyService';
+import { musicBrainzService } from '../services/musicBrainzService';
+import { catalogDescriptionService } from '../services/catalogDescriptionService';
 import { createError } from '../middleware/errorHandler';
 import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
@@ -159,8 +161,19 @@ class ReleaseController {
       }
 
       if (!release) {
+        const spotifyAlbum = spotifyService.isConfigured() ? await spotifyService.getAlbumById(id) : null;
+        if (spotifyAlbum) {
+          release = await this.findOrCreateReleaseFromSpotify(spotifyAlbum);
+        }
+      }
+
+      if (!release) {
         return next(createError('Release not found', 404));
       }
+
+      release = await this.ensureMusicBrainzIdentity(release);
+      release = await this.hydrateSpotifyReleaseMetadata(release);
+      release = await this.hydrateReleaseDescription(release);
 
       if (release.spotifyId && (!release.tracks || release.tracks.length === 0)) {
         await this.syncSpotifyReleaseTracks(release.id, release.spotifyId);
@@ -1010,6 +1023,115 @@ class ReleaseController {
     await this.syncSpotifyReleaseTracks(release.id, album.id);
 
     return release;
+  }
+
+  private async ensureMusicBrainzIdentity(release: any) {
+    if (release.musicBrainzId) {
+      return release;
+    }
+
+    const artistName = release.artist?.name || '';
+    const matches = await musicBrainzService.searchReleases(`${release.title} ${artistName}`.trim(), 5);
+    if (matches.length === 0) {
+      return release;
+    }
+
+    const exact = matches.find((candidate) => {
+      const titleMatches = candidate.title?.toLowerCase() === String(release.title).toLowerCase();
+      const creditMatches = (candidate['artist-credit'] || []).some(
+        (credit: any) => credit?.artist?.name?.toLowerCase() === artistName.toLowerCase(),
+      );
+      return titleMatches && (artistName ? creditMatches : true);
+    });
+    const best = exact || matches[0];
+
+    return prisma.release.update({
+      where: { id: release.id },
+      data: {
+        musicBrainzId: best.id,
+        disambiguation: release.disambiguation || best.disambiguation || null,
+        releaseDate: release.releaseDate || musicBrainzService.parseReleaseDate(best.date),
+      },
+      include: releaseDetailInclude,
+    });
+  }
+
+  private async hydrateSpotifyReleaseMetadata(release: any) {
+    if (!release.spotifyId || !spotifyService.isConfigured()) {
+      return release;
+    }
+
+    const album = await spotifyService.getAlbumById(release.spotifyId);
+    if (!album) {
+      return release;
+    }
+
+    const nextData: any = {
+      label: album.label || release.label || null,
+      spotifyPopularity: album.popularity ?? release.spotifyPopularity ?? null,
+      copyrights: Array.isArray(album.copyrights)
+        ? album.copyrights.map((entry) => entry?.text).filter(Boolean)
+        : release.copyrights || [],
+    };
+
+    if (!release.releaseDate && album.release_date) {
+      nextData.releaseDate = this.parseDate(album.release_date);
+    }
+    if (!release.artworkUrl && album.images?.[0]?.url) {
+      nextData.artworkUrl = album.images[0].url;
+    }
+
+    const hasChanges =
+      nextData.label !== (release.label || null) ||
+      nextData.spotifyPopularity !== (release.spotifyPopularity ?? null) ||
+      JSON.stringify(nextData.copyrights || []) !== JSON.stringify(release.copyrights || []) ||
+      Boolean(nextData.releaseDate) ||
+      Boolean(nextData.artworkUrl);
+
+    if (!hasChanges) {
+      return release;
+    }
+
+    return prisma.release.update({
+      where: { id: release.id },
+      data: nextData,
+      include: releaseDetailInclude,
+    });
+  }
+
+  private async hydrateReleaseDescription(release: any) {
+    if (!release.musicBrainzId) {
+      return release;
+    }
+
+    const description = await catalogDescriptionService.resolveReleaseDescription(release.musicBrainzId);
+    if (!description) {
+      return release;
+    }
+
+    const nextData: any = {};
+    if (!release.description && description.description) {
+      nextData.description = description.description;
+    }
+    if (!release.disambiguation && description.disambiguation) {
+      nextData.disambiguation = description.disambiguation;
+    }
+    if (!release.wikidataId && description.wikidataId) {
+      nextData.wikidataId = description.wikidataId;
+    }
+    if (!release.wikipediaUrl && description.wikipediaUrl) {
+      nextData.wikipediaUrl = description.wikipediaUrl;
+    }
+
+    if (Object.keys(nextData).length === 0) {
+      return release;
+    }
+
+    return prisma.release.update({
+      where: { id: release.id },
+      data: nextData,
+      include: releaseDetailInclude,
+    });
   }
 
   private async syncSpotifyReleaseTracks(localReleaseId: string, spotifyAlbumId: string) {

@@ -41,6 +41,11 @@ export interface Artist {
   type: 'INDIVIDUAL' | 'GROUP'
   disambiguation: string | null
   bio: string | null
+  spotifyPopularity?: number | null
+  spotifyFollowers?: number | null
+  spotifyGenres?: string[]
+  wikidataId?: string | null
+  wikipediaUrl?: string | null
   musicBrainzId: string | null
   spotifyId?: string | null
   spotifyUrl?: string | null
@@ -99,6 +104,12 @@ export interface Release {
   releaseDate: string | null
   disambiguation: string | null
   artworkUrl: string | null
+  description?: string | null
+  label?: string | null
+  copyrights?: string[]
+  spotifyPopularity?: number | null
+  wikidataId?: string | null
+  wikipediaUrl?: string | null
   musicBrainzId: string | null
   spotifyId?: string | null
   spotifyUrl?: string | null

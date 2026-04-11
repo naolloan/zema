@@ -11,6 +11,10 @@ interface SpotifyImage {
   url: string;
 }
 
+interface SpotifyFollowers {
+  total?: number;
+}
+
 interface SpotifyArtistRef {
   id: string;
   name: string;
@@ -31,7 +35,15 @@ interface SpotifyTrackAlbumRef {
 export interface SpotifyArtist {
   id: string;
   name: string;
+  popularity?: number;
+  genres?: string[];
+  followers?: SpotifyFollowers;
   external_urls?: SpotifyExternalUrls;
+}
+
+interface SpotifyCopyright {
+  text?: string;
+  type?: string;
 }
 
 export interface SpotifyAlbum {
@@ -40,6 +52,9 @@ export interface SpotifyAlbum {
   album_type: 'album' | 'single' | 'compilation';
   release_date?: string;
   total_tracks?: number;
+  label?: string;
+  popularity?: number;
+  copyrights?: SpotifyCopyright[];
   images?: SpotifyImage[];
   artists?: SpotifyArtistRef[];
   external_urls?: SpotifyExternalUrls;

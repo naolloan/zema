@@ -90,6 +90,11 @@ model Artist {
   type           ArtistType
   disambiguation String?
   bio            String?
+  spotifyPopularity Int?
+  spotifyFollowers  Int?
+  spotifyGenres     String[]    @default([])
+  wikidataId        String?
+  wikipediaUrl      String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   releases       Release[]
@@ -113,6 +118,12 @@ model Release {
   releaseDate    DateTime?
   disambiguation String?
   artworkUrl     String?
+  description    String?       @db.Text
+  label          String?
+  copyrights     String[]      @default([])
+  spotifyPopularity Int?
+  wikidataId     String?
+  wikipediaUrl   String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   artistId       String

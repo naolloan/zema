@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { spotifyService } from '../services/spotifyService';
 import { musicBrainzService } from '../services/musicBrainzService';
+import { catalogDescriptionService } from '../services/catalogDescriptionService';
 import { createError } from '../middleware/errorHandler';
 import { prisma } from '../prisma';
 import { releaseDetailInclude, serializeReleaseDetail } from '../utils/serializers';
@@ -114,6 +115,9 @@ class ArtistController {
               spotifyId: spotifyArtist.id,
               name: spotifyArtist.name,
               type: 'INDIVIDUAL',
+              spotifyPopularity: spotifyArtist.popularity ?? null,
+              spotifyFollowers: spotifyArtist.followers?.total ?? null,
+              spotifyGenres: spotifyArtist.genres ?? [],
             },
           });
         }
@@ -147,6 +151,9 @@ class ArtistController {
       if (artist.spotifyId) {
         await this.syncSpotifyArtistCatalog(artist.id, artist.spotifyId);
       }
+
+      artist = await this.hydrateSpotifyArtistMetadata(artist);
+      artist = await this.hydrateArtistDescription(artist);
 
       const whereClause = this.artistReleaseWhere(artist.id, true);
       const releases = await prisma.release.findMany({
@@ -436,6 +443,60 @@ class ArtistController {
     }
   }
 
+  private async hydrateSpotifyArtistMetadata(artist: any) {
+    if (!artist.spotifyId || !spotifyService.isConfigured()) {
+      return artist;
+    }
+
+    const spotifyArtist = await spotifyService.getArtistById(artist.spotifyId);
+    if (!spotifyArtist) {
+      return artist;
+    }
+
+    return prisma.artist.update({
+      where: { id: artist.id },
+      data: {
+        spotifyPopularity: spotifyArtist.popularity ?? null,
+        spotifyFollowers: spotifyArtist.followers?.total ?? null,
+        spotifyGenres: spotifyArtist.genres ?? [],
+      },
+    });
+  }
+
+  private async hydrateArtistDescription(artist: any) {
+    if (!artist.musicBrainzId) {
+      return artist;
+    }
+
+    const description = await catalogDescriptionService.resolveArtistDescription(artist.musicBrainzId);
+    if (!description) {
+      return artist;
+    }
+
+    const nextData: any = {};
+    if (!artist.bio && description.description) {
+      nextData.bio = description.description;
+    }
+    if (!artist.disambiguation && description.disambiguation) {
+      nextData.disambiguation = description.disambiguation;
+    }
+    if (!artist.wikidataId && description.wikidataId) {
+      nextData.wikidataId = description.wikidataId;
+    }
+    if (!artist.wikipediaUrl && description.wikipediaUrl) {
+      nextData.wikipediaUrl = description.wikipediaUrl;
+    }
+
+    if (Object.keys(nextData).length === 0) {
+      return artist;
+    }
+
+    return prisma.artist.update({
+      where: { id: artist.id },
+      data: nextData,
+    });
+  }
+
   private mapSpotifyReleaseType(albumType: string | null | undefined, title: string) {
     const normalizedTitle = (title || '').toLowerCase();
     if (normalizedTitle.includes('mixtape')) {
@@ -509,6 +570,11 @@ class ArtistController {
       type: 'INDIVIDUAL',
       disambiguation: null,
       bio: null,
+      spotifyPopularity: null,
+      spotifyFollowers: null,
+      spotifyGenres: [],
+      wikidataId: null,
+      wikipediaUrl: null,
       createdAt: null,
       updatedAt: null,
     };
@@ -524,6 +590,11 @@ class ArtistController {
       type: musicBrainzService.mapArtistType(artist.type),
       disambiguation: artist.disambiguation || null,
       bio: null,
+      spotifyPopularity: null,
+      spotifyFollowers: null,
+      spotifyGenres: [],
+      wikidataId: null,
+      wikipediaUrl: null,
       createdAt: null,
       updatedAt: null,
     };

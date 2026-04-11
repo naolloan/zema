@@ -104,11 +104,19 @@ export async function deleteMyAccount(payload: {
 }
 
 export function getGoogleAuthUrl() {
-  return `${API_ORIGIN}/api/auth/google/start`
+  const params = new URLSearchParams()
+  if (typeof window !== 'undefined') {
+    params.set('frontend_origin', window.location.origin)
+  }
+  return `${API_ORIGIN}/api/auth/google/start${params.toString() ? `?${params.toString()}` : ''}`
 }
 
 export function getSpotifyAuthUrl() {
-  return `${API_ORIGIN}/api/auth/spotify/start`
+  const params = new URLSearchParams()
+  if (typeof window !== 'undefined') {
+    params.set('frontend_origin', window.location.origin)
+  }
+  return `${API_ORIGIN}/api/auth/spotify/start${params.toString() ? `?${params.toString()}` : ''}`
 }
 
 export async function logoutUser(): Promise<void> {

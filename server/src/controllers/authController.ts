@@ -518,6 +518,7 @@ class AuthController {
 
   async startGoogleAuth(req: Request, res: Response, next: NextFunction) {
     try {
+      const frontendOrigin = typeof req.query.frontend_origin === 'string' ? req.query.frontend_origin : undefined;
       if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
         return next(createError('Google sign-in is not configured on this server yet', 500));
       }
@@ -528,7 +529,7 @@ class AuthController {
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', 'openid email profile');
       url.searchParams.set('prompt', 'select_account');
-      url.searchParams.set('state', createGoogleStateToken());
+      url.searchParams.set('state', createGoogleStateToken(frontendOrigin));
 
       res.redirect(url.toString());
     } catch (error) {
@@ -555,7 +556,8 @@ class AuthController {
         return;
       }
 
-      verifyOAuthStateToken(state);
+      const verifiedState = verifyOAuthStateToken(state);
+      const callbackUrl = verifiedState.redirectTo ? new URL(verifiedState.redirectTo) : frontendCallbackUrl;
 
       const tokenResponse = await axios.post(
         'https://oauth2.googleapis.com/token',
@@ -636,12 +638,13 @@ class AuthController {
       }
 
       const sessionPayload = Buffer.from(JSON.stringify(this.buildSessionResponse(user))).toString('base64url');
-      frontendCallbackUrl.searchParams.set('session', sessionPayload);
-      res.redirect(frontendCallbackUrl.toString());
+      callbackUrl.searchParams.set('session', sessionPayload);
+      res.redirect(callbackUrl.toString());
     } catch (error) {
       console.error('[google-auth-callback-failed]', {
         message: error instanceof Error ? error.message : 'Unknown Google auth error',
         stack: error instanceof Error ? error.stack : undefined,
+        response: axios.isAxiosError(error) ? error.response?.data : undefined,
       });
       frontendCallbackUrl.searchParams.set('error', 'Google sign-in could not be completed.');
       res.redirect(frontendCallbackUrl.toString());
@@ -650,6 +653,7 @@ class AuthController {
 
   async startSpotifyAuth(req: Request, res: Response, next: NextFunction) {
     try {
+      const frontendOrigin = typeof req.query.frontend_origin === 'string' ? req.query.frontend_origin : undefined;
       if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET || !process.env.SPOTIFY_OAUTH_REDIRECT_URI) {
         return next(createError('Spotify sign-in is not configured on this server yet', 500));
       }
@@ -660,7 +664,7 @@ class AuthController {
       url.searchParams.set('response_type', 'code');
       url.searchParams.set('scope', process.env.SPOTIFY_OAUTH_SCOPES || 'user-read-email user-read-private');
       url.searchParams.set('show_dialog', 'true');
-      url.searchParams.set('state', createSpotifyStateToken());
+      url.searchParams.set('state', createSpotifyStateToken(frontendOrigin));
 
       res.redirect(url.toString());
     } catch (error) {
@@ -687,7 +691,8 @@ class AuthController {
         return;
       }
 
-      verifyOAuthStateToken(state);
+      const verifiedState = verifyOAuthStateToken(state);
+      const callbackUrl = verifiedState.redirectTo ? new URL(verifiedState.redirectTo) : frontendCallbackUrl;
 
       const tokenResponse = await axios.post(
         process.env.SPOTIFY_OAUTH_TOKEN_URL || 'https://accounts.spotify.com/api/token',
@@ -770,12 +775,13 @@ class AuthController {
       }
 
       const sessionPayload = Buffer.from(JSON.stringify(this.buildSessionResponse(user))).toString('base64url');
-      frontendCallbackUrl.searchParams.set('session', sessionPayload);
-      res.redirect(frontendCallbackUrl.toString());
+      callbackUrl.searchParams.set('session', sessionPayload);
+      res.redirect(callbackUrl.toString());
     } catch (error) {
       console.error('[spotify-auth-callback-failed]', {
         message: error instanceof Error ? error.message : 'Unknown Spotify auth error',
         stack: error instanceof Error ? error.stack : undefined,
+        response: axios.isAxiosError(error) ? error.response?.data : undefined,
       });
       frontendCallbackUrl.searchParams.set('error', 'Spotify sign-in could not be completed.');
       res.redirect(frontendCallbackUrl.toString());

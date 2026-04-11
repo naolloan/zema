@@ -3,16 +3,73 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Clock3, ExternalLink, Hash, Music2, Send } from 'lucide-react'
+import { ArrowLeft, Clock3, ExternalLink, Hash, Music2, Send, Star } from 'lucide-react'
 import { BrandLoader } from '@/components/brand/brand-logo'
 import { ArtistCreditLine } from '@/components/music/artist-credit-line'
 import { CoverArt } from '@/components/music/cover-art'
+import { RatingPicker } from '@/components/music/rating-picker'
 import { TrackReviewCard } from '@/components/music/track-review-card'
-import { createTrackReview, deleteTrackReview, updateTrackReview } from '@/lib/auth-api'
+import { createTrackReview, deleteTrackReview, rateTrack, removeTrackRating, updateTrackReview } from '@/lib/auth-api'
 import { getTrack, getTrackReviews } from '@/lib/music-api'
-import { formatDuration } from '@/lib/utils'
+import { formatDuration, formatRatingValue } from '@/lib/utils'
 import type { Track, TrackReview } from '@/types'
 import { useAuthStore } from '@/store/auth-store'
+
+function applyOptimisticTrackRatingChange(current: Track, nextValue: number | null): Track {
+  const previousValue = current.userRating?.value ?? null
+  if (previousValue === nextValue) {
+    return current
+  }
+
+  const currentBreakdown = current.ratingBreakdown
+  if (!currentBreakdown) {
+    return {
+      ...current,
+      userRating: nextValue === null ? null : { id: current.userRating?.id || `track-rating-${current.id}`, value: nextValue },
+    }
+  }
+
+  const histogram = currentBreakdown.histogram.map((bucket) => ({ ...bucket }))
+  const previousIndex = previousValue === null ? -1 : histogram.findIndex((bucket) => bucket.value === previousValue)
+  const nextIndex = nextValue === null ? -1 : histogram.findIndex((bucket) => bucket.value === nextValue)
+
+  if (previousIndex >= 0) {
+    histogram[previousIndex] = {
+      ...histogram[previousIndex],
+      count: Math.max(0, histogram[previousIndex].count - 1),
+    }
+  }
+
+  if (nextIndex >= 0) {
+    histogram[nextIndex] = {
+      ...histogram[nextIndex],
+      count: histogram[nextIndex].count + 1,
+    }
+  }
+
+  const currentTotal = currentBreakdown.total || current.ratingCount || 0
+  const currentAverage = currentBreakdown.average || current.averageRating || 0
+  const nextTotal = currentTotal + (nextValue !== null ? 1 : 0) - (previousValue !== null ? 1 : 0)
+  const currentSum = currentAverage * currentTotal
+  const nextSum = currentSum + (nextValue ?? 0) - (previousValue ?? 0)
+  const nextAverage = nextTotal > 0 ? nextSum / nextTotal : 0
+
+  return {
+    ...current,
+    averageRating: nextAverage,
+    ratingCount: nextTotal,
+    counts: {
+      ratings: nextTotal,
+    },
+    ratingBreakdown: {
+      ...currentBreakdown,
+      average: nextAverage,
+      total: nextTotal,
+      histogram,
+    },
+    userRating: nextValue === null ? null : { id: current.userRating?.id || `track-rating-${current.id}`, value: nextValue },
+  }
+}
 
 export default function TrackPage() {
   const params = useParams<{ id: string }>()
@@ -21,6 +78,7 @@ export default function TrackPage() {
   const [reviews, setReviews] = useState<TrackReview[]>([])
   const [loading, setLoading] = useState(true)
   const [reviewLoading, setReviewLoading] = useState(false)
+  const [ratingLoadingValue, setRatingLoadingValue] = useState<number | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reviewDraft, setReviewDraft] = useState('')
@@ -71,6 +129,47 @@ export default function TrackPage() {
   }
 
   const currentTrack = track
+
+  async function handleRateTrack(value: number) {
+    if (!user) {
+      setError('Sign in to rate this song.')
+      return
+    }
+
+    setRatingLoadingValue(value)
+    setError(null)
+    setMessage(null)
+
+    try {
+      await rateTrack(currentTrack.id, value)
+      setTrack((current) => (current ? applyOptimisticTrackRatingChange(current, value) : current))
+      setMessage(`Saved your ${formatRatingValue(value)}-star song rating.`)
+    } catch (caught: any) {
+      setError(caught?.response?.data?.error || 'Unable to save your song rating right now.')
+    } finally {
+      setRatingLoadingValue(null)
+    }
+  }
+
+  async function handleClearTrackRating() {
+    if (!user || !currentTrack.userRating) {
+      return
+    }
+
+    setRatingLoadingValue(currentTrack.userRating.value)
+    setError(null)
+    setMessage(null)
+
+    try {
+      await removeTrackRating(currentTrack.id)
+      setTrack((current) => (current ? applyOptimisticTrackRatingChange(current, null) : current))
+      setMessage('Cleared your song rating.')
+    } catch (caught: any) {
+      setError(caught?.response?.data?.error || 'Unable to clear your song rating right now.')
+    } finally {
+      setRatingLoadingValue(null)
+    }
+  }
 
   async function handleSaveReview() {
     if (!user || !reviewDraft.trim()) {
@@ -195,6 +294,37 @@ export default function TrackPage() {
                     ? `${currentTrack.title} lives inside ${currentTrack.release.title}, so this page focuses on the song itself while still linking you back to the full release.`
                     : `${currentTrack.title} is currently cataloged as a standalone song with no linked release yet.`}
                 </p>
+              </div>
+              <div className="mt-4 rounded-[1.35rem] border border-white/8 bg-[#0f141d]/74 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/42">
+                      <Star className="h-4 w-4 text-[#f4d35e]" />
+                      Song Rating
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold text-white">
+                      {typeof currentTrack.averageRating === 'number' && currentTrack.ratingCount
+                        ? currentTrack.averageRating.toFixed(1)
+                        : 'N/A'}
+                    </p>
+                    <p className="mt-1 text-sm text-white/56">
+                      {currentTrack.ratingCount || 0} rating{currentTrack.ratingCount === 1 ? '' : 's'} from listeners
+                    </p>
+                  </div>
+                  {currentTrack.userRating ? (
+                    <div className="rounded-full border border-[#f4d35e]/25 bg-[#f4d35e]/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#f8e7a2]">
+                      Your rating: {formatRatingValue(currentTrack.userRating.value)}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="mt-4">
+                  <RatingPicker
+                    value={currentTrack.userRating?.value ?? null}
+                    loadingValue={ratingLoadingValue}
+                    onRate={handleRateTrack}
+                    onClear={handleClearTrackRating}
+                  />
+                </div>
               </div>
             </div>
 
