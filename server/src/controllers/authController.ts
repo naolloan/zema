@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
+import https from 'https';
 import fs from 'fs/promises';
 import path from 'path';
 import { AuthTokenType, User } from '@prisma/client';
@@ -39,6 +40,10 @@ const USER_SESSION_SELECT = {
 } as const;
 
 class AuthController {
+  private readonly spotifyRequestTimeoutMs = Number(process.env.SPOTIFY_REQUEST_TIMEOUT_MS || 20000);
+  private readonly spotifyForceIpv4 = (process.env.SPOTIFY_FORCE_IPV4 || 'false').toLowerCase() === 'true';
+  private readonly spotifyHttpsAgent = this.spotifyForceIpv4 ? new https.Agent({ family: 4 }) : undefined;
+
   constructor() {
     this.register = this.register.bind(this);
     this.login = this.login.bind(this);
@@ -706,7 +711,8 @@ class AuthController {
             Authorization: `Basic ${Buffer.from(`${process.env.SPOTIFY_CLIENT_ID!}:${process.env.SPOTIFY_CLIENT_SECRET!}`).toString('base64')}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          timeout: 15000,
+          timeout: this.spotifyRequestTimeoutMs,
+          httpsAgent: this.spotifyHttpsAgent,
         }
       );
 
@@ -717,7 +723,8 @@ class AuthController {
 
       const profileResponse = await axios.get('https://api.spotify.com/v1/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 15000,
+        timeout: this.spotifyRequestTimeoutMs,
+        httpsAgent: this.spotifyHttpsAgent,
       });
 
       const spotifyProfile = profileResponse.data as {
