@@ -284,80 +284,17 @@ export function getDynamicListDefinition(slug: string): DynamicListDefinition | 
   return getDynamicListDefinitions().find((item) => item.slug === slug) || null
 }
 
-function buildRecentReviewDrivenChart(reviews: Review[], mode: 'recent_reviews' | 'recent_likes', limit: number): ChartResponse {
-  const windowStart = new Date()
-  windowStart.setDate(windowStart.getDate() - 7)
-  const grouped = new Map<string, { release: Release; score: number }>()
-
-  for (const review of reviews) {
-    const reviewDate = new Date(review.createdAt)
-    if (reviewDate < windowStart) {
-      continue
-    }
-
-    const current = grouped.get(review.release.id)
-    const delta = mode === 'recent_likes' ? review.likesCount : 1
-
-    if (current) {
-      current.score += delta
-    } else {
-      grouped.set(review.release.id, {
-        release: review.release,
-        score: delta,
-      })
-    }
-  }
-
-  const ranked = Array.from(grouped.values())
-    .filter((entry) => entry.score > 0)
-    .sort((a, b) => b.score - a.score || a.release.title.localeCompare(b.release.title))
-
-  return {
-    items: ranked.slice(0, limit).map((entry, index) => ({
-      release: entry.release,
-      rank: index + 1,
-      averageRating: entry.release.averageRating || 0,
-      ratingCount: entry.score,
-    })),
-    total: ranked.length,
-    type: mode === 'recent_likes' ? 'RECENT_LIKES' : 'RECENT_REVIEWS',
-  }
-}
-
 export async function getOfficialListData(definition: DynamicListDefinition, limit = 10): Promise<ChartResponse | null> {
   if (definition.status === 'planned') {
     return null
   }
 
   const resolvedLimit = Math.min(limit, definition.limit)
-
-  if (definition.source === 'chart') {
-    return getTopReleases(definition.releaseType === 'ALL' ? undefined : definition.releaseType, resolvedLimit)
-  }
-
-  const reviews: Review[] = []
-  let offset = 0
-  const pageSize = 50
-
-  while (reviews.length < resolvedLimit * 6 && offset < 250) {
-    const recentReviews = await getRecentReviews(pageSize, offset)
-    if (!recentReviews?.data?.length) {
-      break
-    }
-
-    reviews.push(...recentReviews.data)
-    offset += recentReviews.data.length
-
-    if (recentReviews.data.length < pageSize) {
-      break
-    }
-  }
-
-  if (reviews.length === 0) {
+  try {
+    return await fetchJson<ChartResponse>(`/charts/official/${definition.slug}?limit=${resolvedLimit}`)
+  } catch {
     return null
   }
-
-  return buildRecentReviewDrivenChart(reviews, definition.source, resolvedLimit)
 }
 
 export async function searchMusic(query: string, type: 'all' | 'artist' | 'release' | 'track' | 'list' = 'all'): Promise<SearchResult | null> {

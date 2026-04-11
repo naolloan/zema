@@ -4,6 +4,24 @@ import { createError } from '../middleware/errorHandler';
 import { prisma } from '../prisma';
 import { releaseSummaryInclude, serializeReleaseSummary } from '../utils/serializers';
 
+type OfficialListSource = 'chart' | 'recent_reviews' | 'recent_likes';
+
+interface OfficialListDefinition {
+  slug: string;
+  releaseType: ReleaseType | 'ALL';
+  source: OfficialListSource;
+  status: 'live' | 'planned';
+}
+
+const OFFICIAL_LIST_DEFINITIONS: OfficialListDefinition[] = [
+  { slug: 'top-250-community-canon', releaseType: 'ALL', source: 'chart', status: 'live' },
+  { slug: 'popular-this-week', releaseType: 'ALL', source: 'recent_reviews', status: 'live' },
+  { slug: 'recently-liked', releaseType: 'ALL', source: 'recent_likes', status: 'live' },
+  { slug: 'top-250-albums', releaseType: ReleaseType.ALBUM, source: 'chart', status: 'live' },
+  { slug: 'top-250-eps', releaseType: ReleaseType.EP, source: 'chart', status: 'live' },
+  { slug: 'top-250-songs', releaseType: ReleaseType.SINGLE, source: 'chart', status: 'live' },
+  { slug: 'top-250-mixtapes', releaseType: ReleaseType.MIXTAPE, source: 'chart', status: 'live' },
+];
 
 class ChartController {
   getTopReleases = async (req: Request, res: Response, next: NextFunction) => {
@@ -55,6 +73,46 @@ class ChartController {
           items,
           total,
           type: chartType,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getOfficialList = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { slug } = req.params;
+      const { limit = '50', offset = '0' } = req.query;
+      const parsedLimit = Math.min(parseInt(limit as string, 10) || 50, 250);
+      const parsedOffset = parseInt(offset as string, 10) || 0;
+
+      const definition = OFFICIAL_LIST_DEFINITIONS.find((item) => item.slug === slug);
+      if (!definition) {
+        return next(createError('Official list not found', 404));
+      }
+
+      if (definition.status !== 'live') {
+        return res.json({
+          success: true,
+          data: {
+            items: [],
+            total: 0,
+            type: definition.slug.toUpperCase(),
+          },
+        });
+      }
+
+      const chart =
+        definition.source === 'chart'
+          ? await this.buildChart(definition.releaseType === 'ALL' ? {} : { type: definition.releaseType }, parsedLimit, parsedOffset)
+          : await this.buildRecentActivityChart(definition, parsedLimit, parsedOffset);
+
+      res.json({
+        success: true,
+        data: {
+          ...chart,
+          type: definition.slug.toUpperCase(),
         },
       });
     } catch (error) {
@@ -119,6 +177,127 @@ class ChartController {
     return {
       items,
       total: ratedReleaseGroups.length,
+    };
+  }
+
+  private async buildRecentActivityChart(definition: OfficialListDefinition, limit: number, offset: number) {
+    const windowStart = new Date();
+    windowStart.setDate(windowStart.getDate() - 7);
+
+    const releaseTypeFilter =
+      definition.releaseType === 'ALL'
+        ? {}
+        : {
+            release: {
+              type: definition.releaseType,
+            },
+          };
+
+    const grouped = new Map<string, { release: any; score: number; averageRating: number; ratingCount: number }>();
+
+    if (definition.source === 'recent_reviews') {
+      const reviews = await prisma.review.findMany({
+        where: {
+          createdAt: { gte: windowStart },
+          ...releaseTypeFilter,
+        },
+        include: {
+          release: {
+            include: releaseSummaryInclude,
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 1000,
+      });
+
+      for (const review of reviews) {
+        const current = grouped.get(review.releaseId);
+        if (current) {
+          current.score += 1;
+        } else {
+          grouped.set(review.releaseId, {
+            release: review.release,
+            score: 1,
+            averageRating: 0,
+            ratingCount: 0,
+          });
+        }
+      }
+    } else {
+      const likes = await prisma.reviewLike.findMany({
+        where: {
+          createdAt: { gte: windowStart },
+          review: releaseTypeFilter,
+        },
+        include: {
+          review: {
+            include: {
+              release: {
+                include: releaseSummaryInclude,
+              },
+            },
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 2000,
+      });
+
+      for (const like of likes) {
+        const release = like.review.release;
+        const current = grouped.get(release.id);
+        if (current) {
+          current.score += 1;
+        } else {
+          grouped.set(release.id, {
+            release,
+            score: 1,
+            averageRating: 0,
+            ratingCount: 0,
+          });
+        }
+      }
+    }
+
+    const rankedEntries = Array.from(grouped.values())
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.release.title.localeCompare(b.release.title));
+
+    const pagedEntries = rankedEntries.slice(offset, offset + limit);
+    const releaseIds = pagedEntries.map((entry) => entry.release.id);
+
+    const ratingGroups = releaseIds.length
+      ? await prisma.rating.groupBy({
+          by: ['releaseId'],
+          where: {
+            releaseId: { in: releaseIds },
+          },
+          _avg: { value: true },
+          _count: { value: true },
+        })
+      : [];
+
+    const ratingMap = new Map(
+      ratingGroups.map((group) => [
+        group.releaseId,
+        {
+          averageRating: group._avg.value || 0,
+          ratingCount: group._count.value || 0,
+        },
+      ]),
+    );
+
+    return {
+      items: pagedEntries.map((entry, index) => ({
+        release: {
+          ...serializeReleaseSummary(entry.release),
+          averageRating: ratingMap.get(entry.release.id)?.averageRating || 0,
+          ratingCount: ratingMap.get(entry.release.id)?.ratingCount || 0,
+        },
+        rank: offset + index + 1,
+        averageRating: ratingMap.get(entry.release.id)?.averageRating || 0,
+        ratingCount: entry.score,
+      })),
+      total: rankedEntries.length,
     };
   }
 }
