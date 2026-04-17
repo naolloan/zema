@@ -175,7 +175,7 @@ class ReleaseController {
       release = await this.hydrateSpotifyReleaseMetadata(release);
       release = await this.hydrateReleaseDescription(release);
 
-      if (release.spotifyId && (!release.tracks || release.tracks.length === 0)) {
+      if (this.shouldSyncSpotifyTracks(release)) {
         await this.syncSpotifyReleaseTracks(release.id, release.spotifyId);
         release = await prisma.release.findUnique({ where: { id: release.id }, include: releaseDetailInclude });
       }
@@ -333,7 +333,7 @@ class ReleaseController {
         return next(createError('Release not found', 404));
       }
 
-      if (release.spotifyId && release.tracks.length === 0) {
+      if (this.shouldSyncSpotifyTracks(release)) {
         await this.syncSpotifyReleaseTracks(release.id, release.spotifyId);
         const hydrated = await prisma.release.findUnique({
           where: { id: release.id },
@@ -353,6 +353,37 @@ class ReleaseController {
     } catch (error) {
       next(error);
     }
+  }
+
+  private shouldSyncSpotifyTracks(release: { spotifyId?: string | null; tracks?: Array<{ discNumber: number | null; trackNumber: number | null }> | null }) {
+    if (!release.spotifyId) {
+      return false;
+    }
+
+    const tracks = release.tracks || [];
+    if (tracks.length === 0) {
+      return true;
+    }
+
+    const hasDiscData = tracks.some((track) => track.discNumber !== null && track.discNumber !== undefined);
+    if (hasDiscData) {
+      return false;
+    }
+
+    const seenTrackNumbers = new Set<number>();
+    for (const track of tracks) {
+      if (track.trackNumber === null || track.trackNumber === undefined) {
+        continue;
+      }
+
+      if (seenTrackNumbers.has(track.trackNumber)) {
+        return true;
+      }
+
+      seenTrackNumbers.add(track.trackNumber);
+    }
+
+    return false;
   }
 
   async getReleaseRatings(req: Request, res: Response, next: NextFunction) {
