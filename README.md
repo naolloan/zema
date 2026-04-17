@@ -12,6 +12,7 @@ The app is actively in development and already includes the main social/discover
 - public lists and official lists
 - favorites, likes, and want-to-hear tracking
 - Google sign-in plus email/password auth
+- hardened web auth using secure `httpOnly` session cookies
 
 Some integrations are intentionally partial for now:
 
@@ -96,6 +97,7 @@ Required for basic local development:
 - `JWT_SECRET`
 - `PORT`
 - `FRONTEND_URL`
+- `PUBLIC_API_BASE_URL`
 
 Optional integrations:
 
@@ -106,6 +108,12 @@ Optional integrations:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_REDIRECT_URI`
+- `ALLOWED_ORIGINS`
+- `AUTH_COOKIE_NAME`
+- `AUTH_COOKIE_DOMAIN`
+- `AUTH_COOKIE_SECURE`
+- `AUTH_COOKIE_SAME_SITE`
+- `TRUST_PROXY`
 
 ### Client
 

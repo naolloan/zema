@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { createError } from '../middleware/errorHandler';
 import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
+import { getPublicApiUrl } from '../utils/auth';
 import { releaseSummaryInclude, reviewInclude, serializeArtistSummary, serializeReleaseSummary, serializeReview, serializeUserSummary } from '../utils/serializers';
 
 const AVATAR_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'avatars');
@@ -358,7 +359,7 @@ class UserController {
         await this.deleteStoredAvatar(existingUser.avatarUrl);
       }
 
-      const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${fileName}`;
+      const avatarUrl = `${getPublicApiUrl(req)}/uploads/avatars/${fileName}`;
 
       res.json({
         success: true,

@@ -12,9 +12,8 @@ import { ArtistCreditLine } from '@/components/music/artist-credit-line'
 import { CoverArt } from '@/components/music/cover-art'
 
 export default function DiaryPage() {
-  const { user, token, hydrated, hydrate, clearSession } = useAuthStore((state) => ({
+  const { user, hydrated, hydrate, clearSession } = useAuthStore((state) => ({
     user: state.user,
-    token: state.token,
     hydrated: state.hydrated,
     hydrate: state.hydrate,
     clearSession: state.clearSession,
@@ -30,7 +29,7 @@ export default function DiaryPage() {
 
   useEffect(() => {
     async function loadDiary() {
-      if (!token) {
+      if (!user) {
         setLoading(false)
         return
       }
@@ -49,7 +48,7 @@ export default function DiaryPage() {
     if (hydrated) {
       loadDiary()
     }
-  }, [clearSession, hydrated, token])
+  }, [clearSession, hydrated, user])
 
   async function handleLoadMore() {
     setLoadingMore(true)

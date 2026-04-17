@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { createError } from './errorHandler';
+import { getTokenFromCookieHeader } from '../utils/auth';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -16,7 +17,8 @@ export const authenticateToken = (
   next: NextFunction
 ) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const bearerToken = authHeader && authHeader.split(' ')[1];
+  const token = bearerToken || getTokenFromCookieHeader(req.headers.cookie);
 
   if (!token) {
     return next(createError('Access token required', 401));
@@ -37,7 +39,8 @@ export const optionalAuth = (
   next: NextFunction
 ) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const bearerToken = authHeader && authHeader.split(' ')[1];
+  const token = bearerToken || getTokenFromCookieHeader(req.headers.cookie);
 
   if (token) {
     jwt.verify(token, process.env.JWT_SECRET!, (err, user) => {

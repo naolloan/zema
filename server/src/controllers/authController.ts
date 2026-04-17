@@ -11,10 +11,14 @@ import { CreateUserInput, LoginInput } from '../types';
 import { prisma } from '../prisma';
 import { sendTransactionalEmail } from '../services/emailService';
 import {
+  createExpiredSessionCookie,
   createGoogleStateToken,
+  createSessionCookie,
   createSpotifyStateToken,
   createOpaqueToken,
   getFrontendUrl,
+  getPublicApiUrl,
+  getTokenFromCookieHeader,
   hashOpaqueToken,
   serializeSessionUser,
   signSessionToken,
@@ -173,9 +177,11 @@ class AuthController {
         return;
       }
 
+      const session = this.buildSessionResponse(user);
+      res.setHeader('Set-Cookie', createSessionCookie(session.token));
       res.json({
         success: true,
-        data: this.buildSessionResponse(user),
+        data: session,
       });
     } catch (error) {
       next(error);
@@ -236,7 +242,11 @@ class AuthController {
         success: true,
         message: 'Your email has been verified.',
         data: {
-          session: this.buildSessionResponse(verifiedUser),
+          session: (() => {
+            const session = this.buildSessionResponse(verifiedUser);
+            res.setHeader('Set-Cookie', createSessionCookie(session.token));
+            return session;
+          })(),
         },
       });
     } catch (error) {
@@ -388,7 +398,11 @@ class AuthController {
         success: true,
         message: 'Your password has been reset.',
         data: {
-          session: this.buildSessionResponse(updatedUser),
+          session: (() => {
+            const session = this.buildSessionResponse(updatedUser);
+            res.setHeader('Set-Cookie', createSessionCookie(session.token));
+            return session;
+          })(),
         },
       });
     } catch (error) {
@@ -512,6 +526,7 @@ class AuthController {
         await this.deleteStoredAvatar(avatarUrl);
       }
 
+      res.setHeader('Set-Cookie', createExpiredSessionCookie());
       res.json({
         success: true,
         message: 'Your account has been deleted.',
@@ -642,7 +657,9 @@ class AuthController {
         });
       }
 
-      const sessionPayload = Buffer.from(JSON.stringify(this.buildSessionResponse(user))).toString('base64url');
+      const session = this.buildSessionResponse(user);
+      res.setHeader('Set-Cookie', createSessionCookie(session.token));
+      const sessionPayload = Buffer.from(JSON.stringify({ user: session.user })).toString('base64url');
       callbackUrl.searchParams.set('session', sessionPayload);
       res.redirect(callbackUrl.toString());
     } catch (error) {
@@ -781,7 +798,9 @@ class AuthController {
         });
       }
 
-      const sessionPayload = Buffer.from(JSON.stringify(this.buildSessionResponse(user))).toString('base64url');
+      const session = this.buildSessionResponse(user);
+      res.setHeader('Set-Cookie', createSessionCookie(session.token));
+      const sessionPayload = Buffer.from(JSON.stringify({ user: session.user })).toString('base64url');
       callbackUrl.searchParams.set('session', sessionPayload);
       res.redirect(callbackUrl.toString());
     } catch (error) {
@@ -798,7 +817,7 @@ class AuthController {
   async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
       const authHeader = req.headers['authorization'];
-      const token = authHeader && authHeader.split(' ')[1];
+      const token = (authHeader && authHeader.split(' ')[1]) || getTokenFromCookieHeader(req.headers.cookie);
 
       if (!token) {
         return next(createError('Token is required', 401));
@@ -819,6 +838,7 @@ class AuthController {
           { expiresIn: '7d' }
         );
 
+        res.setHeader('Set-Cookie', createSessionCookie(newToken));
         res.json({
           success: true,
           data: {
@@ -833,6 +853,7 @@ class AuthController {
 
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
+      res.setHeader('Set-Cookie', createExpiredSessionCookie());
       res.json({
         success: true,
         message: 'Logged out successfully',
@@ -917,7 +938,7 @@ class AuthController {
 
   private async deleteStoredAvatar(avatarUrl: string) {
     try {
-      const parsedUrl = new URL(avatarUrl, getFrontendUrl());
+      const parsedUrl = new URL(avatarUrl, getPublicApiUrl());
       if (!parsedUrl.pathname.startsWith('/uploads/avatars/')) {
         return;
       }

@@ -50,7 +50,6 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
   const router = useRouter()
   const setSession = useAuthStore((state) => state.setSession)
   const clearSession = useAuthStore((state) => state.clearSession)
-  const token = useAuthStore((state) => state.token)
   const currentUser = useAuthStore((state) => state.user)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [form, setForm] = useState({
@@ -334,8 +333,8 @@ export function ProfileEditor({ profile, onProfileChange }: ProfileEditorProps) 
       setUploadZoom(1)
 
       onProfileChange(nextProfile)
-      if (token) {
-        setSession({ user: { ...currentUser, ...updatedUser } as User, token })
+      if (currentUser) {
+        setSession({ user: { ...currentUser, ...updatedUser } as User })
       }
       setMessage('Profile updated.')
     } catch (caught: any) {

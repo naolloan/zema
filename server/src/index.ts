@@ -23,6 +23,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const TRUST_PROXY = process.env.TRUST_PROXY || '1';
+app.set('trust proxy', TRUST_PROXY === 'true' ? 1 : TRUST_PROXY === 'false' ? false : TRUST_PROXY);
 
 // Security middleware
 app.use(helmet({
@@ -35,8 +37,35 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 25),
+  message: 'Too many authentication attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.WRITE_RATE_LIMIT_MAX || 120),
+  message: 'Too many write requests from this IP, please slow down and try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const unsafeMethodWriteLimiter = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    next();
+    return;
+  }
+
+  writeLimiter(req, res, next);
+};
 
 // CORS configuration
 const allowedOrigins = new Set([
@@ -48,6 +77,13 @@ const allowedOrigins = new Set([
 
 if (process.env.FRONTEND_URL) {
   allowedOrigins.add(process.env.FRONTEND_URL);
+}
+
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .forEach((origin) => allowedOrigins.add(origin));
 }
 
 app.use(cors({
@@ -62,6 +98,19 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
+    const duration = Date.now() - startedAt;
+    console.info(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
+});
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -73,15 +122,15 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/users', unsafeMethodWriteLimiter, userRoutes);
 app.use('/api/artists', artistRoutes);
-app.use('/api/releases', releaseRoutes);
-app.use('/api/tracks', trackRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/ratings', ratingRoutes);
-app.use('/api/diary', diaryRoutes);
-app.use('/api/lists', listRoutes);
+app.use('/api/releases', unsafeMethodWriteLimiter, releaseRoutes);
+app.use('/api/tracks', unsafeMethodWriteLimiter, trackRoutes);
+app.use('/api/reviews', unsafeMethodWriteLimiter, reviewRoutes);
+app.use('/api/ratings', unsafeMethodWriteLimiter, ratingRoutes);
+app.use('/api/diary', unsafeMethodWriteLimiter, diaryRoutes);
+app.use('/api/lists', unsafeMethodWriteLimiter, listRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/search', searchRoutes);
 

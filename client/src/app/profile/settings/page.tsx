@@ -10,9 +10,8 @@ import { useAuthStore } from '@/store/auth-store'
 import type { Profile } from '@/types'
 
 export default function ProfileSettingsPage() {
-  const { user, token, hydrated, hydrate, clearSession } = useAuthStore((state) => ({
+  const { user, hydrated, hydrate, clearSession } = useAuthStore((state) => ({
     user: state.user,
-    token: state.token,
     hydrated: state.hydrated,
     hydrate: state.hydrate,
     clearSession: state.clearSession,
@@ -26,7 +25,7 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      if (!token || !user) {
+      if (!user) {
         setLoading(false)
         return
       }
@@ -44,7 +43,7 @@ export default function ProfileSettingsPage() {
     if (hydrated) {
       loadProfile()
     }
-  }, [clearSession, hydrated, token, user])
+  }, [clearSession, hydrated, user])
 
   if (!hydrated || loading) {
     return (
@@ -54,7 +53,7 @@ export default function ProfileSettingsPage() {
     )
   }
 
-  if (!token || !user || !profile) {
+  if (!user || !profile) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white">

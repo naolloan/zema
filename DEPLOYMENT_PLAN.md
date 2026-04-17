@@ -45,6 +45,7 @@ If you want a single public product domain later, we can simplify to:
 - frontend and backend build successfully
 - health endpoint exists: `/health`
 - JWT auth is implemented
+- the web client now authenticates through `httpOnly` session cookies instead of persisting bearer tokens in `localStorage`
 - Google OAuth is implemented
 - password reset and email verification are implemented
 - rate limiting and Helmet are already enabled
@@ -52,7 +53,7 @@ If you want a single public product domain later, we can simplify to:
 
 ### Current production gaps we should plan around
 1. Avatar uploads are stored on the server filesystem under `/uploads`
-2. CORS is built around a single `FRONTEND_URL`
+2. Production CORS/cookie envs must be set explicitly
 3. Google redirect URI in docs/examples is local-only right now
 4. Email delivery depends on verified domain DNS
 5. Error handling is functional, but production monitoring is not wired yet
@@ -95,6 +96,14 @@ JWT_SECRET="a-long-random-production-secret"
 NODE_ENV="production"
 PORT=5000
 FRONTEND_URL="https://zema.naol.aesturkey.com"
+PUBLIC_API_BASE_URL="https://api.naol.aesturkey.com"
+ALLOWED_ORIGINS="https://zema.naol.aesturkey.com"
+TRUST_PROXY="1"
+
+AUTH_COOKIE_NAME="zema_session"
+AUTH_COOKIE_DOMAIN=".naol.aesturkey.com"
+AUTH_COOKIE_SECURE="true"
+AUTH_COOKIE_SAME_SITE="lax"
 
 SPOTIFY_CLIENT_ID="..."
 SPOTIFY_CLIENT_SECRET="..."
@@ -112,6 +121,7 @@ GOOGLE_REDIRECT_URI="https://api.naol.aesturkey.com/api/auth/google/callback"
 ```env
 NEXT_PUBLIC_API_BASE_URL="https://api.naol.aesturkey.com"
 NEXT_PUBLIC_GOOGLE_AUTH_ENABLED="true"
+NEXT_PUBLIC_SPOTIFY_AUTH_ENABLED="true"
 ```
 
 ### 4. Rotate exposed secrets before production
@@ -190,20 +200,20 @@ Also update:
 - authorized JavaScript origins for the frontend domain
 - test/publish status depending on whether the app is public yet
 
-### 3. CORS confirmation
-Current server code already supports:
+### 3. CORS and proxy confirmation
+Current server code supports:
 - localhost defaults
-- one configured `FRONTEND_URL`
+- one primary `FRONTEND_URL`
+- comma-separated `ALLOWED_ORIGINS`
+- `TRUST_PROXY` for reverse-proxy deployments
+- `PUBLIC_API_BASE_URL` for correct avatar/upload URLs behind the proxy
 
-For production, this is okay if there is exactly one frontend app:
-- `https://zema.naol.aesturkey.com`
-
-If you later add:
-- mobile app callbacks
-- preview/staging apps
-- multiple frontend domains
-
-then we should expand the CORS config to support multiple origins via env.
+For production, set:
+- `FRONTEND_URL` to the main web app domain
+- `ALLOWED_ORIGINS` to every trusted web origin
+- `TRUST_PROXY=1`
+- `PUBLIC_API_BASE_URL` to the public API hostname
+- cookie settings so auth works correctly across your frontend and API domains
 
 ### 4. Monitoring
 Before public launch, add:

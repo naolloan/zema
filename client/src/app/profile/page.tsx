@@ -43,13 +43,12 @@ function formatCommentPermissionLabel(permission: Profile['commentPermission']) 
 }
 
 export default function ProfilePage() {
-  const { user, hydrated, hydrate, clearSession, setSession, token } = useAuthStore((state) => ({
+  const { user, hydrated, hydrate, clearSession, setSession } = useAuthStore((state) => ({
     user: state.user,
     hydrated: state.hydrated,
     hydrate: state.hydrate,
     clearSession: state.clearSession,
     setSession: state.setSession,
-    token: state.token,
   }))
   const [selectedTab, setSelectedTab] = useState<ProfileTab>('profile')
   const [releaseSort, setReleaseSort] = useState<'recent' | 'title' | 'type'>('recent')
@@ -72,7 +71,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function loadProfile() {
-      if (!token || !user?.id) {
+      if (!user?.id) {
         setLoading(false)
         return
       }
@@ -97,7 +96,7 @@ export default function ProfilePage() {
         setFollowing(followingData.data)
         setWantToHear(wantToHearData.data)
         setLikedReleases(likedReleaseData.data)
-        setSession({ user: { ...user, ...data }, token })
+        setSession({ user: { ...user, ...data } })
       } catch {
         clearSession()
       } finally {
@@ -108,7 +107,7 @@ export default function ProfilePage() {
     if (hydrated) {
       loadProfile()
     }
-  }, [clearSession, hydrated, setSession, token, user?.id])
+  }, [clearSession, hydrated, setSession, user?.id])
 
   const favoriteAlbumReleases = useMemo(() => (profile?.favoriteAlbums ?? []).map((favorite) => favorite.release), [profile?.favoriteAlbums])
   const favoriteSongReleases = useMemo(() => (profile?.favoriteSongs ?? []).map((favorite) => favorite.release), [profile?.favoriteSongs])

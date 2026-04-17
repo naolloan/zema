@@ -355,7 +355,7 @@ export interface UserSearchResult {
 
 export interface AuthSession {
   user: User
-  token: string
+  token?: string | null
 }
 
 export interface ApiResponse<T = unknown> {

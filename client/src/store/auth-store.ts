@@ -21,10 +21,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   hydrated: false,
   setSession: ({ user, token }) => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(TOKEN_KEY, token)
       window.localStorage.setItem(USER_KEY, JSON.stringify(user))
+      window.localStorage.removeItem(TOKEN_KEY)
     }
-    set({ user, token, hydrated: true })
+    set({ user, token: token || null, hydrated: true })
   },
   clearSession: () => {
     if (typeof window !== 'undefined') {
@@ -39,7 +39,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       return
     }
 
-    const token = window.localStorage.getItem(TOKEN_KEY)
     const rawUser = window.localStorage.getItem(USER_KEY)
     let user: User | null = null
 
@@ -51,6 +50,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     }
 
-    set({ token, user, hydrated: true })
+    window.localStorage.removeItem(TOKEN_KEY)
+    set({ token: null, user, hydrated: true })
   },
 }))

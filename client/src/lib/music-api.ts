@@ -18,24 +18,16 @@ import type {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
 
 function buildHeaders(): HeadersInit {
-  const headers: Record<string, string> = {
+  return {
     'Content-Type': 'application/json',
   }
-
-  if (typeof window !== 'undefined') {
-    const token = window.localStorage.getItem('token')
-    if (token) {
-      headers.Authorization = `Bearer ${token}`
-    }
-  }
-
-  return headers
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/api${path}`, {
     headers: buildHeaders(),
     cache: 'no-store',
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -50,6 +42,7 @@ async function fetchEnvelope<T>(path: string): Promise<PaginatedEnvelope<T>> {
   const response = await fetch(`${API_BASE_URL}/api${path}`, {
     headers: buildHeaders(),
     cache: 'no-store',
+    credentials: 'include',
   })
 
   if (!response.ok) {
