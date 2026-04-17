@@ -127,6 +127,7 @@ export default function ReleasePage() {
   const [activePanelLoading, setActivePanelLoading] = useState(false)
   const overlayCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [overlayVisible, setOverlayVisible] = useState(false)
+  const detailsOnlyView = searchParams?.get('view') === 'details'
 
   useEffect(() => {
     return () => {
@@ -241,6 +242,23 @@ export default function ReleasePage() {
   }
 
   const overlayActive = Boolean(selectedRatingValue || activePanel)
+  const panelOnlyView = detailsOnlyView && Boolean(activePanel) && !selectedRatingValue
+
+  const panelEyebrow = selectedRatingValue ? 'Ratings' : activePanel === 'logs' ? 'Logs' : activePanel === 'lists' ? 'Lists' : 'Likes'
+  const panelTitle = selectedRatingValue
+    ? `${formatRatingValue(selectedRatingValue)}-star listeners`
+    : activePanel === 'logs'
+      ? `${release?.title} logs`
+      : activePanel === 'lists'
+        ? `Lists containing ${release?.title}`
+        : `People who liked ${release?.title}`
+  const panelDescription = selectedRatingValue
+    ? `Everyone who rated ${release?.title} ${formatRatingValue(selectedRatingValue)} star${selectedRatingValue === 1 ? '' : 's'}.`
+    : activePanel === 'logs'
+      ? 'Every public diary log we currently have for this release.'
+      : activePanel === 'lists'
+        ? 'Public lists that include this release.'
+        : 'Everyone who liked this release.'
 
   function closeOverlayPanels() {
     const next = new URLSearchParams(searchParams?.toString() || '')
@@ -325,6 +343,103 @@ export default function ReleasePage() {
   }
   if (!release) {
     return <main className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12 sm:px-6 lg:px-8"><Link href="/explore" className="inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"><ArrowLeft className="h-4 w-4" />Back to explore</Link><div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white"><h1 className="text-3xl font-semibold">Release not found</h1><p className="mt-3 text-white/64">Try discovering it again from the search page so it can be loaded from the catalog.</p></div></main>
+  }
+
+  if (panelOnlyView && release) {
+    return (
+      <main className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={closeOverlayPanels}
+            className="inline-flex items-center gap-2 text-sm text-white/60 transition hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to release
+          </button>
+          <Link href={`/releases/${release.id}`} className="text-sm text-white/50 transition hover:text-white">
+            Open full release page
+          </Link>
+        </div>
+        <section className="rounded-[1.75rem] border border-white/10 bg-[#101720] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8ecae6]">{panelEyebrow}</p>
+              <h1 className="mt-2 text-3xl font-semibold text-white">{panelTitle}</h1>
+              <p className="mt-2 text-sm text-white/60">{panelDescription}</p>
+            </div>
+            <button
+              type="button"
+              onClick={closeOverlayPanels}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mt-6 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+            {activePanelLoading ? (
+              <div className="flex items-center gap-2 rounded-[1rem] bg-white/[0.04] px-4 py-3 text-sm text-white/64">
+                <BrandLoader className="h-4 w-auto" />
+                Loading...
+              </div>
+            ) : activePanel === 'logs' ? (
+              releaseLogs.length ? (
+                releaseLogs.map((entry) => (
+                  <div key={entry.id} className="rounded-[1rem] bg-white/[0.04] px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <Link href={`/users/${entry.user.id}`} className="flex items-center gap-3 transition hover:opacity-90">
+                        <UserAvatar user={entry.user} className="h-11 w-11" textClassName="text-sm" />
+                        <div>
+                          <p className="text-sm font-semibold text-white">{entry.user.displayName || entry.user.username}</p>
+                          <p className="text-xs uppercase tracking-[0.18em] text-white/38">@{entry.user.username}</p>
+                        </div>
+                      </Link>
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/38">{formatDateTime(entry.listenedAt)}</p>
+                    </div>
+                    {entry.notes ? <p className="mt-3 text-sm leading-6 text-white/72">{entry.notes}</p> : null}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[1rem] bg-white/[0.04] px-4 py-3 text-sm text-white/60">No logs yet.</div>
+              )
+            ) : activePanel === 'lists' ? (
+              releaseLists.length ? (
+                releaseLists.map((list) => (
+                  <Link key={list.id} href={`/lists/${list.id}`} className="block rounded-[1rem] bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.07]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{list.title}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/38">
+                          by {list.user.displayName || list.user.username} · {list.itemsCount} releases
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-[#8ecae6]">{list.likesCount || 0} likes</p>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-[1rem] bg-white/[0.04] px-4 py-3 text-sm text-white/60">No public lists yet.</div>
+              )
+            ) : releaseLikes.length ? (
+              releaseLikes.map((entry) => (
+                <Link key={entry.id} href={`/users/${entry.user.id}`} className="flex items-center justify-between gap-4 rounded-[1rem] bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.07]">
+                  <div className="flex items-center gap-3">
+                    <UserAvatar user={entry.user} className="h-11 w-11" textClassName="text-sm" />
+                    <div>
+                      <p className="text-sm font-semibold text-white">{entry.user.displayName || entry.user.username}</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/38">@{entry.user.username}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/38">{formatDateTime(entry.createdAt)}</p>
+                </Link>
+              ))
+            ) : (
+              <div className="rounded-[1rem] bg-white/[0.04] px-4 py-3 text-sm text-white/60">No likes yet.</div>
+            )}
+          </div>
+        </section>
+      </main>
+    )
   }
 
   return (
@@ -563,27 +678,9 @@ export default function ReleasePage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8ecae6]">
-                  {selectedRatingValue ? 'Ratings' : activePanel === 'logs' ? 'Logs' : activePanel === 'lists' ? 'Lists' : 'Likes'}
-                </p>
-                <h3 className="mt-2 text-2xl font-semibold text-white">
-                  {selectedRatingValue
-                    ? `${formatRatingValue(selectedRatingValue)}-star listeners`
-                    : activePanel === 'logs'
-                      ? `${release.title} logs`
-                      : activePanel === 'lists'
-                        ? `Lists containing ${release.title}`
-                        : `People who liked ${release.title}`}
-                </h3>
-                <p className="mt-2 text-sm text-white/60">
-                  {selectedRatingValue
-                    ? `Everyone who rated ${release.title} ${formatRatingValue(selectedRatingValue)} star${selectedRatingValue === 1 ? '' : 's'}.`
-                    : activePanel === 'logs'
-                      ? 'Every public diary log we currently have for this release.'
-                      : activePanel === 'lists'
-                        ? 'Public lists that include this release.'
-                        : 'Everyone who liked this release.'}
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8ecae6]">{panelEyebrow}</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">{panelTitle}</h3>
+                <p className="mt-2 text-sm text-white/60">{panelDescription}</p>
               </div>
               <button
                 type="button"

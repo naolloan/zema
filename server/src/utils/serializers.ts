@@ -267,6 +267,19 @@ export function serializeTrack(track: any) {
     spotifyUrl: trackSpotifyUrl(track.spotifyId),
     createdAt: track.createdAt,
     updatedAt: track.updatedAt,
+    averageRating: typeof track.averageRating === 'number' ? track.averageRating : undefined,
+    ratingCount:
+      typeof track.ratingCount === 'number'
+        ? track.ratingCount
+        : typeof track._count?.ratings === 'number'
+          ? track._count.ratings
+          : undefined,
+    counts:
+      track.counts || typeof track._count?.ratings === 'number'
+        ? {
+            ratings: track.counts?.ratings ?? track._count?.ratings ?? 0,
+          }
+        : undefined,
     release: track.release ? serializeReleaseSummary(track.release) : null,
     artistCredits: (track.artistCredits ?? []).map((credit: any) => ({
       ...credit,

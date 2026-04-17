@@ -94,9 +94,9 @@ export function ReleaseCard({ release, eyebrow }: ReleaseCardProps) {
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-[1rem] border border-white/8 bg-[#0f141d]/78 px-3 py-2 text-xs font-semibold">
-            <StatPill label="Logs" value={formatCompactCount(localRelease.counts?.logs || 0)} icon={<Radio className="h-3.5 w-3.5 text-[#48c774]" />} href={`/releases/${localRelease.id}?panel=logs`} />
-            <StatPill label="Lists" value={formatCompactCount(localRelease.counts?.lists || 0)} icon={<LibraryBig className="h-3.5 w-3.5 text-[#7cc6ff]" />} href={`/releases/${localRelease.id}?panel=lists`} />
-            <StatPill label="Likes" value={formatCompactCount(localRelease.counts?.likes || 0)} icon={<Heart className="h-3.5 w-3.5 fill-current text-[#ff7b54]" />} href={`/releases/${localRelease.id}?panel=likes`} />
+            <StatPill label="Logs" value={formatCompactCount(localRelease.counts?.logs || 0)} icon={<Radio className="h-3.5 w-3.5 text-[#48c774]" />} href={`/releases/${localRelease.id}?panel=logs&view=details`} />
+            <StatPill label="Lists" value={formatCompactCount(localRelease.counts?.lists || 0)} icon={<LibraryBig className="h-3.5 w-3.5 text-[#7cc6ff]" />} href={`/releases/${localRelease.id}?panel=lists&view=details`} />
+            <StatPill label="Likes" value={formatCompactCount(localRelease.counts?.likes || 0)} icon={<Heart className="h-3.5 w-3.5 fill-current text-[#ff7b54]" />} href={`/releases/${localRelease.id}?panel=likes&view=details`} />
             {chartLabel ? <StatPill label="Top 250 Rank" value={chartLabel} icon={<Crown className="h-3.5 w-3.5 text-[#f4d35e]" />} href={`/releases/${localRelease.id}`} /> : null}
           </div>
         </div>

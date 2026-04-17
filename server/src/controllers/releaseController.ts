@@ -194,6 +194,7 @@ class ReleaseController {
         }),
         this.getReleaseRanking(release.id, release.type),
       ]);
+      const tracksWithRatings = await this.attachTrackRatings(release.tracks ?? []);
 
       let userRating = null;
       let isLiked = false;
@@ -235,6 +236,7 @@ class ReleaseController {
 
       const serialized = serializeReleaseDetail({
         ...release,
+        tracks: tracksWithRatings,
         ranking,
         ratingBreakdown: {
           average: avgRating._avg.value || 0,
@@ -349,10 +351,47 @@ class ReleaseController {
         }
       }
 
-      res.json({ success: true, data: release.tracks.map(serializeTrack) });
+      const tracksWithRatings = await this.attachTrackRatings(release.tracks ?? []);
+
+      res.json({ success: true, data: tracksWithRatings.map(serializeTrack) });
     } catch (error) {
       next(error);
     }
+  }
+
+  private async attachTrackRatings(tracks: any[]) {
+    if (!tracks.length) {
+      return tracks;
+    }
+
+    const ratingGroups = await prisma.trackRating.groupBy({
+      by: ['trackId'],
+      where: {
+        trackId: { in: tracks.map((track) => track.id) },
+      },
+      _avg: { value: true },
+      _count: { value: true },
+    });
+
+    const ratingMap = new Map(
+      ratingGroups.map((group) => [
+        group.trackId,
+        {
+          averageRating: group._avg.value || 0,
+          ratingCount: group._count.value || 0,
+          counts: {
+            ratings: group._count.value || 0,
+          },
+        },
+      ]),
+    );
+
+    return tracks.map((track) => ({
+      ...track,
+      averageRating: ratingMap.get(track.id)?.averageRating,
+      ratingCount: ratingMap.get(track.id)?.ratingCount,
+      counts: ratingMap.get(track.id)?.counts,
+    }));
   }
 
   private shouldSyncSpotifyTracks(release: { spotifyId?: string | null; tracks?: Array<{ discNumber: number | null; trackNumber: number | null }> | null }) {

@@ -1,6 +1,7 @@
 import type { Track } from '@/types'
 import Link from 'next/link'
-import { formatDuration } from '@/lib/utils'
+import { Star } from 'lucide-react'
+import { formatDuration, formatRatingValue } from '@/lib/utils'
 import { ArtistCreditLine } from './artist-credit-line'
 
 interface TrackListProps {
@@ -49,7 +50,15 @@ export function TrackList({ tracks }: TrackListProps) {
                 </Link>
                 <ArtistCreditLine credits={track.artistCredits} className="mt-1 block text-xs text-white/56" />
               </div>
-              <div className="text-sm text-white/48">{track.duration ? formatDuration(track.duration) : '--:--'}</div>
+              <div className="flex items-center gap-3 text-sm text-white/48">
+                {typeof track.averageRating === 'number' && (track.ratingCount || 0) > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-[#f4d35e]">
+                    <Star className="h-3.5 w-3.5 fill-current" />
+                    <span className="font-medium">{formatRatingValue(track.averageRating)}</span>
+                  </span>
+                ) : null}
+                <span>{track.duration ? formatDuration(track.duration) : '--:--'}</span>
+              </div>
             </div>
           ))}
         </div>
