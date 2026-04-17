@@ -162,6 +162,7 @@ model Track {
   spotifyId      String?       @unique
   title          String
   duration       Int?
+  discNumber     Int?
   trackNumber    Int?
   disambiguation String?
   createdAt      DateTime      @default(now())

@@ -64,6 +64,7 @@ export interface SpotifyTrack {
   id: string;
   name: string;
   duration_ms?: number;
+  disc_number?: number;
   track_number?: number;
   artists?: SpotifyArtistRef[];
   album?: SpotifyTrackAlbumRef;

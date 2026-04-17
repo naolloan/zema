@@ -14,11 +14,12 @@ import { searchMusic, getTopReleases, getRecentDiaryEntries, getRecentReviews } 
 import { searchUsers } from '@/lib/auth-api'
 import { formatDate } from '@/lib/utils'
 import type { ChartResponse, DiaryEntry, Review, SearchResult, User } from '@/types'
+import { useAuthStore } from '@/store/auth-store'
 
 type SearchScope = 'all' | 'artist' | 'release' | 'track' | 'user' | 'list'
 type SearchHistoryEntry = { query: string; scope: SearchScope }
 
-const SEARCH_HISTORY_KEY = 'zema-search-history'
+const SEARCH_HISTORY_KEY_PREFIX = 'zema-search-history'
 
 function formatSearchScopeLabel(scope: SearchScope) {
   return {
@@ -32,6 +33,7 @@ function formatSearchScopeLabel(scope: SearchScope) {
 }
 
 export function ExploreView() {
+  const user = useAuthStore((state) => state.user)
   const [query, setQuery] = useState('')
   const [searchScope, setSearchScope] = useState<SearchScope>('all')
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
@@ -70,9 +72,15 @@ export function ExploreView() {
       return
     }
 
+    if (!user?.id) {
+      setSearchHistory([])
+      return
+    }
+
     try {
-      const stored = window.localStorage.getItem(SEARCH_HISTORY_KEY)
+      const stored = window.localStorage.getItem(`${SEARCH_HISTORY_KEY_PREFIX}:${user.id}`)
       if (!stored) {
+        setSearchHistory([])
         return
       }
 
@@ -81,16 +89,20 @@ export function ExploreView() {
     } catch {
       setSearchHistory([])
     }
-  }, [])
+  }, [user?.id])
 
   function persistSearchHistory(nextHistory: SearchHistoryEntry[]) {
     setSearchHistory(nextHistory)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(nextHistory))
+    if (typeof window !== 'undefined' && user?.id) {
+      window.localStorage.setItem(`${SEARCH_HISTORY_KEY_PREFIX}:${user.id}`, JSON.stringify(nextHistory))
     }
   }
 
   function saveSearchToHistory(nextQuery: string, nextScope: SearchScope) {
+    if (!user?.id) {
+      return
+    }
+
     const normalized = nextQuery.trim()
     if (!normalized) {
       return
@@ -137,8 +149,8 @@ export function ExploreView() {
 
   function clearSearchHistory() {
     persistSearchHistory([])
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(SEARCH_HISTORY_KEY)
+    if (typeof window !== 'undefined' && user?.id) {
+      window.localStorage.removeItem(`${SEARCH_HISTORY_KEY_PREFIX}:${user.id}`)
     }
   }
 
@@ -311,7 +323,7 @@ export function ExploreView() {
           </button>
         </form>
 
-        {searchHistory.length ? (
+        {user?.id && searchHistory.length ? (
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/42">Recent searches</p>
             {searchHistory.map((entry) => (

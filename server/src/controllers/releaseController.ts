@@ -312,7 +312,7 @@ class ReleaseController {
         include: {
           tracks: {
             include: trackInclude,
-            orderBy: [{ trackNumber: 'asc' }, { title: 'asc' }],
+            orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }, { title: 'asc' }],
           },
         },
       });
@@ -323,7 +323,7 @@ class ReleaseController {
           include: {
             tracks: {
               include: trackInclude,
-              orderBy: [{ trackNumber: 'asc' }, { title: 'asc' }],
+              orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }, { title: 'asc' }],
             },
           },
         });
@@ -340,7 +340,7 @@ class ReleaseController {
           include: {
             tracks: {
               include: trackInclude,
-              orderBy: [{ trackNumber: 'asc' }, { title: 'asc' }],
+              orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }, { title: 'asc' }],
             },
           },
         });
@@ -1153,6 +1153,7 @@ class ReleaseController {
               spotifyId: track.id,
               title: track.name,
               duration: track.duration_ms ? Math.round(track.duration_ms / 1000) : null,
+              discNumber: track.disc_number || null,
               trackNumber: track.track_number || null,
               releaseId: localReleaseId,
             },
@@ -1162,6 +1163,7 @@ class ReleaseController {
               spotifyId: track.id,
               title: track.name,
               duration: track.duration_ms ? Math.round(track.duration_ms / 1000) : null,
+              discNumber: track.disc_number || null,
               trackNumber: track.track_number || null,
               releaseId: localReleaseId,
             },

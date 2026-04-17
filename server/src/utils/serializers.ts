@@ -82,7 +82,7 @@ export const releaseDetailInclude: any = {
         orderBy: [{ position: 'asc' }, { id: 'asc' }],
       },
     },
-    orderBy: [{ trackNumber: 'asc' }, { title: 'asc' }],
+    orderBy: [{ discNumber: 'asc' }, { trackNumber: 'asc' }, { title: 'asc' }],
   },
   _count: {
     select: {
@@ -259,6 +259,7 @@ export function serializeTrack(track: any) {
     id: track.id,
     title: track.title,
     duration: track.duration ?? null,
+    discNumber: track.discNumber ?? null,
     trackNumber: track.trackNumber ?? null,
     disambiguation: track.disambiguation ?? null,
     musicBrainzId: track.musicBrainzId ?? null,

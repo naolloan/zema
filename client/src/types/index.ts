@@ -133,6 +133,7 @@ export interface Track {
   id: string
   title: string
   duration: number | null
+  discNumber: number | null
   trackNumber: number | null
   disambiguation: string | null
   musicBrainzId: string | null

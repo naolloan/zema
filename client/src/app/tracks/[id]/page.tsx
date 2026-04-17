@@ -281,7 +281,13 @@ export default function TrackPage() {
                     <Hash className="h-4 w-4 text-[#f4d35e]" />
                     Position
                   </div>
-                  <p className="mt-3 text-2xl font-semibold text-white">{currentTrack.trackNumber ? `Track ${currentTrack.trackNumber}` : 'Unlisted'}</p>
+                  <p className="mt-3 text-2xl font-semibold text-white">
+                    {currentTrack.trackNumber
+                      ? currentTrack.discNumber && currentTrack.discNumber > 1
+                        ? `Disc ${currentTrack.discNumber} • Track ${currentTrack.trackNumber}`
+                        : `Track ${currentTrack.trackNumber}`
+                      : 'Unlisted'}
+                  </p>
                 </div>
               </div>
               <div className="mt-4 rounded-[1.35rem] border border-white/8 bg-[#0f141d]/74 p-4">
@@ -346,7 +352,7 @@ export default function TrackPage() {
                     value={reviewDraft}
                     onChange={(event) => setReviewDraft(event.target.value)}
                     placeholder="Write whatever you want about this song."
-                    className="mt-4 min-h-[140px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-white placeholder:text-white/36 outline-none transition focus:border-white/20"
+                    className="mt-4 min-h-[140px] w-full rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-sm text-black placeholder:text-black/36 outline-none transition focus:border-white/20"
                   />
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button

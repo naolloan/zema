@@ -487,6 +487,7 @@ class TrackController {
         spotifyId: spotifyTrack.id,
         title: spotifyTrack.name,
         duration: spotifyTrack.duration_ms ? Math.round(spotifyTrack.duration_ms / 1000) : null,
+        discNumber: spotifyTrack.disc_number ? parseInt(String(spotifyTrack.disc_number), 10) || null : null,
         trackNumber: spotifyTrack.track_number ? parseInt(String(spotifyTrack.track_number), 10) || null : null,
         releaseId,
         artistCredits: {
